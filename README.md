@@ -4,7 +4,7 @@ An interactive, physically-based 3D reconstruction and stamping simulator for th
 
 Everything runs in a single HTML file. No build step, no dependencies to install.
 
-![Dugu Seal showing carved inscriptions on multiple faces](./screenshots/inspect-mode.png) <!-- optional; delete or replace -->
+![Dugu Seal showing carved inscriptions on multiple faces](./screenshots/overall_screenshot.png) <!-- optional; delete or replace -->
 
 ---
 
