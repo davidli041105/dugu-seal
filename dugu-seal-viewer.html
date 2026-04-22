@@ -1063,6 +1063,8 @@ class Paper {
     const row = Math.floor(faceId / atlas.cols);
     const srcX = col * cellPx + padPx;
     const srcY = row * cellPx + padPx;
+    const faceData = atlas.faces[faceId] || null;
+    const isRecessed = !faceData || faceData.style !== 'raised';
     const pressureNorm = THREE.MathUtils.clamp(pressure, 0, 1);
     const stampSizePx = Math.max(24, Math.round(stampSizeWorld / this.size * R));
     const processPx = stampSizePx;
@@ -1091,8 +1093,9 @@ class Paper {
     const cx = processPx / 2;
     const cy = processPx / 2;
     for (let i = 0; i < d.length; i += 4) {
-      const alpha = d[i + 3];
-      if (alpha < 5) {
+      const sourceAlpha = d[i + 3];
+      const maskAlpha = isRecessed ? (255 - sourceAlpha) : sourceAlpha;
+      if (maskAlpha < 5) {
         d[i + 3] = 0;
         continue;
       }
@@ -1108,11 +1111,13 @@ class Paper {
       const dy = (yi - cy) / cy;
       const r2 = dx * dx + dy * dy;
       const pressureFalloff = Math.max(0.55, 1.0 - r2 * 0.35);
-      const factor = pressureNorm * noiseMod * pressureFalloff;
+      const factor = isRecessed
+        ? pressureNorm * pressureFalloff
+        : pressureNorm * noiseMod * pressureFalloff;
       d[i] = Math.round(175 + 40 * (1 - factor));
       d[i + 1] = Math.round(35 + 25 * (1 - factor));
       d[i + 2] = Math.round(25 + 15 * (1 - factor));
-      d[i + 3] = Math.round(alpha * factor * 0.92);
+      d[i + 3] = Math.round(maskAlpha * factor * 0.92);
     }
     octx.putImageData(img, 0, 0);
 
