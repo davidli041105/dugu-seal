@@ -1,0 +1,2737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dugu Seal — Phase 3 Inscription Editor</title>
+<style>
+  :root {
+    --bg-0: #08060a;
+    --bg-1: #15100d;
+    --ink:  #e8dcc4;
+    --ink-dim: #8a7e68;
+    --accent: #c2410c;
+    --accent-soft: #d97757;
+    --border: rgba(232, 220, 196, 0.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: #000;
+    color: var(--ink);
+    font-family: 'Cormorant Garamond', 'Source Han Serif SC', 'Songti SC', Georgia, serif;
+    overflow: hidden;
+  }
+  #viewport { position: fixed; inset: 0; }
+
+  #hud {
+    position: fixed; top: 22px; left: 26px;
+    max-width: 340px; z-index: 10;
+    padding: 20px 22px;
+    background: rgba(8, 6, 10, 0.66);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+  }
+  #hud h1 {
+    font-size: 24px; font-weight: 500;
+    letter-spacing: 0.015em;
+    margin-bottom: 4px;
+  }
+  #hud h1 .accent { color: var(--accent-soft); }
+  #hud .subtitle {
+    font-size: 11px; color: var(--ink-dim);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  #hud .lede {
+    font-size: 13px; color: var(--ink-dim);
+    line-height: 1.55; font-style: italic;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  #panel {
+    position: fixed; top: 22px; right: 26px; z-index: 10;
+    width: 300px;
+    padding: 16px 18px;
+    background: rgba(8, 6, 10, 0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+  }
+  #panel.panel-frozen {
+    background: rgba(14, 18, 22, 0.78);
+    border-color: rgba(136, 168, 200, 0.34);
+    box-shadow: 0 0 24px rgba(136, 168, 200, 0.08);
+    filter: saturate(0.65);
+  }
+  #panel.panel-frozen::after {
+    content: "Settings locked during stamping";
+    display: block;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(136, 168, 200, 0.24);
+    color: rgba(190, 210, 230, 0.72);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-align: center;
+    text-transform: uppercase;
+  }
+  #panel.panel-frozen input,
+  #panel.panel-frozen textarea,
+  #panel.panel-frozen button {
+    cursor: not-allowed;
+    opacity: 0.46;
+  }
+  #panel h3 {
+    font-size: 11px; color: var(--ink-dim);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    margin-bottom: 10px; font-weight: 500;
+  }
+  .tabs {
+    display: flex; gap: 2px; margin-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    color: var(--ink-dim);
+    font-family: inherit; font-size: 12px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.active {
+    color: var(--accent-soft);
+    border-bottom-color: var(--accent-soft);
+  }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .slider-row { margin-bottom: 10px; }
+  .slider-row label {
+    display: flex; justify-content: space-between;
+    font-size: 12px; color: var(--ink);
+    margin-bottom: 4px;
+  }
+  .slider-row label span {
+    color: var(--accent-soft);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+  input[type="range"] {
+    width: 100%; -webkit-appearance: none; appearance: none;
+    height: 2px; background: var(--border); outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--accent-soft); cursor: pointer;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--accent-soft); cursor: pointer; border: none;
+  }
+
+  /* Inscription editor elements */
+  .ins-empty {
+    text-align: center; padding: 30px 10px;
+    color: var(--ink-dim); font-style: italic; font-size: 13px;
+    line-height: 1.6;
+  }
+  .ins-empty strong { color: var(--accent-soft); font-style: normal; }
+  .ins-face-label {
+    font-size: 11px; color: var(--ink-dim);
+    letter-spacing: 0.15em; text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .ins-face-label span { color: var(--accent-soft); font-family: 'JetBrains Mono', monospace; }
+  .ins-textarea {
+    width: 100%;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-family: 'KaiTi', 'STKaiti', '楷体', 'Source Han Serif SC', serif;
+    font-size: 22px;
+    line-height: 1.3;
+    resize: vertical;
+    min-height: 70px;
+    outline: none;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  .ins-textarea:focus { border-color: var(--accent-soft); }
+  .ins-style-row {
+    margin-bottom: 10px;
+  }
+  .ins-style-label {
+    display: block;
+    font-size: 12px;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .ins-style-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .ins-style-options label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+  }
+  .ins-style-options label:has(input:checked) {
+    border-color: var(--accent-soft);
+    background: rgba(194, 65, 12, 0.18);
+  }
+  .ins-style-options input { accent-color: var(--accent-soft); }
+  .ins-actions {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    margin-top: 6px;
+  }
+  .ins-btn-small {
+    flex: 1 1 auto;
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-family: inherit; font-size: 11px;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .ins-btn-small:hover { background: rgba(194, 65, 12, 0.2); border-color: var(--accent-soft); }
+  .ins-divider {
+    height: 1px; background: var(--border);
+    margin: 14px 0;
+  }
+  .preset-btn {
+    width: 100%;
+    padding: 10px;
+    background: linear-gradient(135deg, rgba(194, 65, 12, 0.3), rgba(194, 65, 12, 0.1));
+    border: 1px solid var(--accent);
+    color: var(--ink);
+    font-family: inherit; font-size: 12px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .preset-btn:hover { background: linear-gradient(135deg, rgba(194, 65, 12, 0.5), rgba(194, 65, 12, 0.2)); }
+
+  #controls {
+    position: fixed; bottom: 22px; left: 26px; z-index: 10;
+    display: flex; gap: 8px; flex-wrap: wrap;
+    max-width: 480px;
+  }
+  #controls.controls-frozen {
+    filter: saturate(0.45);
+  }
+  #controls.controls-frozen .btn {
+    cursor: not-allowed;
+    opacity: 0.42;
+    border-color: rgba(136, 168, 200, 0.2);
+    color: rgba(210, 220, 232, 0.45);
+  }
+  .btn {
+    padding: 8px 14px;
+    background: rgba(8, 6, 10, 0.66);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-family: inherit; font-size: 13px;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .btn:hover { background: rgba(194, 65, 12, 0.22); border-color: var(--accent-soft); }
+  .btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #btn-stamping-mode { display: none; }
+
+  /* Mode toggle (top center) */
+  #mode-toggle {
+    position: fixed;
+    top: 22px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    display: flex; gap: 2px;
+    padding: 4px;
+    background: rgba(8, 6, 10, 0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+  }
+  .mode-btn {
+    padding: 8px 20px;
+    background: transparent;
+    border: none;
+    color: var(--ink-dim);
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .mode-btn:hover { color: var(--ink); }
+  .mode-btn.active {
+    background: rgba(194, 65, 12, 0.35);
+    color: var(--ink);
+  }
+
+  /* Stamp mode overlay */
+  #stamp-panel {
+    position: fixed;
+    bottom: 22px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    padding: 12px 22px;
+    background: rgba(8, 6, 10, 0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    display: none;
+  }
+  #stamp-panel.visible {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  #stamp-panel .label {
+    font-size: 11px; color: var(--ink-dim);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  #btn-stamp {
+    padding: 11px 30px;
+    background: linear-gradient(135deg, var(--accent), #9b3408);
+    border: 1px solid var(--accent);
+    color: #fff;
+    font-family: inherit;
+    font-size: 14px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+    touch-action: none;
+    user-select: none;
+  }
+  #btn-stamp:hover {
+    background: linear-gradient(135deg, #d4510d, #ad3a09);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(194, 65, 12, 0.4);
+  }
+  #btn-stamp:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+  #btn-clear-stamps {
+    padding: 8px 14px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--ink-dim);
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  #btn-clear-stamps:hover {
+    color: var(--ink);
+    border-color: var(--accent-soft);
+  }
+
+  #hint {
+    position: fixed; bottom: 22px; right: 26px; z-index: 10;
+    font-size: 10px; color: var(--ink-dim);
+    letter-spacing: 0.15em; text-transform: uppercase;
+  }
+  #stamp-bottom-view {
+    position: fixed;
+    left: 26px;
+    top: 62%;
+    transform: translateY(-50%);
+    z-index: 11;
+    width: 260px;
+    padding: 14px;
+    background: rgba(8, 6, 10, 0.78);
+    border: 1px solid rgba(136, 168, 200, 0.28);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    display: none;
+  }
+  #stamp-bottom-view.active {
+    display: block;
+  }
+  #stamp-bottom-view .stamp-view-label {
+    font-size: 10px;
+    color: rgba(190, 210, 230, 0.76);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  #stamp-bottom-canvas {
+    width: 232px;
+    height: 232px;
+    display: block;
+    border: 1px solid rgba(136, 168, 200, 0.22);
+    background: #faf9f6;
+  }
+  #stamp-charge {
+    --charge-lvl: 0;
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 14;
+    width: min(360px, calc(100vw - 48px));
+    padding: 14px 16px 16px;
+    background: rgba(8, 6, 10, 0.82);
+    border: 1px solid rgba(232, 220, 196, 0.16);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.16s ease;
+    will-change: transform, box-shadow, border-color, filter;
+  }
+  #stamp-charge.active {
+    opacity: 1;
+  }
+  #stamp-charge.overdrive {
+    animation: violent-shake calc(0.16s - var(--charge-lvl) * 0.08s) linear infinite;
+  }
+  @keyframes violent-shake {
+    0%   { transform: translate(-50%, -50%) translate(-1px, 1px) rotate(-0.15deg); }
+    20%  { transform: translate(-50%, -50%) translate(1px, -1px) rotate(0.18deg); }
+    40%  { transform: translate(-50%, -50%) translate(-2px, 0px) rotate(-0.24deg); }
+    60%  { transform: translate(-50%, -50%) translate(2px, 1px) rotate(0.22deg); }
+    80%  { transform: translate(-50%, -50%) translate(-1px, -2px) rotate(-0.18deg); }
+    100% { transform: translate(-50%, -50%) translate(1px, 1px) rotate(0.15deg); }
+  }
+  #stamp-charge .stamp-charge-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-size: 10px;
+    color: rgba(232, 220, 196, 0.82);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  #stamp-charge .stamp-charge-track {
+    height: 10px;
+    border: 1px solid rgba(232, 220, 196, 0.14);
+    background: rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+  }
+  #stamp-charge .stamp-charge-fill {
+    width: 100%;
+    height: 100%;
+    background:
+      linear-gradient(
+        90deg,
+        rgba(194, 65, 12, calc(0.45 + var(--charge-lvl) * 0.4)),
+        rgba(220, 38, 38, calc(0.82 + var(--charge-lvl) * 0.18)) 55%,
+        rgba(255, 244, 214, calc(max(0, var(--charge-lvl) - 0.68) * 2.9))
+      );
+    box-shadow:
+      0 0 calc(14px + var(--charge-lvl) * 22px) rgba(220, 38, 38, calc(0.18 + var(--charge-lvl) * 0.48)),
+      0 0 calc(4px + var(--charge-lvl) * 18px) rgba(255, 244, 214, calc(max(0, var(--charge-lvl) - 0.72) * 1.3));
+    transform: scaleX(0);
+    transform-origin: left center;
+    will-change: transform;
+    filter: saturate(calc(1 + var(--charge-lvl) * 1.4)) brightness(calc(0.92 + var(--charge-lvl) * 0.55));
+  }
+  #stamp-charge-value {
+    display: inline-block;
+    transform: scale(1);
+    transition: transform 0.08s ease, color 0.08s ease, text-shadow 0.08s ease;
+  }
+  #stamp-charge-value.overheat {
+    color: #ff6b57;
+    text-shadow: 0 0 14px rgba(255, 104, 87, 0.55);
+  }
+  #stamp-charge .stamp-charge-hint {
+    margin-top: 10px;
+    font-size: 10px;
+    color: rgba(138, 126, 104, 0.92);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-align: center;
+  }
+  #impact-flash {
+    position: fixed;
+    inset: 0;
+    z-index: 13;
+    pointer-events: none;
+    background: #fff;
+    opacity: 0;
+    transition: opacity 0.1s ease;
+  }
+  #stamp-error {
+    position: fixed;
+    left: 50%;
+    top: 110px;
+    transform: translate(-50%, -18px);
+    z-index: 15;
+    min-width: min(520px, calc(100vw - 44px));
+    max-width: min(560px, calc(100vw - 44px));
+    padding: 14px 18px;
+    background:
+      linear-gradient(180deg, rgba(58, 14, 10, 0.94), rgba(22, 8, 8, 0.96));
+    border: 1px solid rgba(255, 114, 84, 0.34);
+    box-shadow:
+      0 14px 34px rgba(0, 0, 0, 0.34),
+      0 0 24px rgba(255, 104, 76, 0.14);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    will-change: opacity, transform;
+  }
+  #stamp-error.visible {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  #stamp-error .stamp-error-title {
+    font-size: 11px;
+    color: #ff9d84;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  #stamp-error .stamp-error-body {
+    font-size: 13px;
+    line-height: 1.55;
+    color: rgba(248, 232, 224, 0.92);
+  }
+
+  #loading {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: #000; z-index: 100;
+    transition: opacity 0.6s;
+    font-size: 12px; color: var(--ink-dim);
+    letter-spacing: 0.3em; text-transform: uppercase;
+  }
+  #loading.hidden { opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="loading">preparing artifact</div>
+<div id="viewport"></div>
+
+<div id="mode-toggle">
+  <button class="mode-btn active" data-mode="inspect">Inspect</button>
+  <button class="mode-btn" data-mode="stamp">Stamp</button>
+</div>
+
+<div id="stamp-panel">
+  <button id="btn-stamp">印 · Stamp</button>
+  <button id="btn-clear-stamps">Clear Paper</button>
+</div>
+
+<div id="hud">
+  <h1>獨孤印 <span class="accent">· Dugu Seal</span></h1>
+  <div class="subtitle">Phase 3 · Inscription Editor</div>
+  <div class="lede">
+    A lacquered seal of the 6th-century Western Wei,<br/>
+    borne by the general Dugu Xin.
+  </div>
+  <div style="margin-top:14px;">
+    <button class="btn" id="btn-stamping-mode">Stamping Mode (开启盖印模式)</button>
+  </div>
+</div>
+
+<div id="stamp-bottom-view">
+  <div class="stamp-view-label">Bottom View</div>
+  <canvas id="stamp-bottom-canvas" width="232" height="232"></canvas>
+</div>
+
+<div id="stamp-charge" aria-hidden="true">
+  <div class="stamp-charge-label">
+    <span>Stamp Charge</span>
+    <span id="stamp-charge-value">0%</span>
+  </div>
+  <div class="stamp-charge-track">
+    <div class="stamp-charge-fill" id="stamp-charge-fill"></div>
+  </div>
+  <div class="stamp-charge-hint">Hold Space to build force · release to stamp</div>
+</div>
+
+<div id="impact-flash" aria-hidden="true"></div>
+
+<div id="stamp-error" aria-hidden="true">
+  <div class="stamp-error-title">Stamping Face Empty</div>
+  <div class="stamp-error-body" id="stamp-error-body"></div>
+</div>
+
+<div id="panel">
+  <div class="tabs">
+    <button class="tab active" data-tab="inscription">Inscription</button>
+    <button class="tab" data-tab="material">Material</button>
+  </div>
+
+  <div class="tab-content active" id="tab-inscription">
+    <div id="ins-empty" class="ins-empty">
+      Click any face of the seal to edit its inscription.<br/><br/>
+      <strong>26 faces</strong> available.
+    </div>
+    <div id="ins-editor" style="display:none;">
+      <div class="ins-face-label">Face <span id="ins-face-name">—</span></div>
+      <textarea id="ins-text" class="ins-textarea" rows="3"
+        placeholder="書寫印文…" maxlength="8"></textarea>
+      <div class="ins-style-row">
+        <span class="ins-style-label">Style</span>
+        <div class="ins-style-options">
+          <label><input type="radio" name="ins-style" value="raised" /> Raised (Yangwen)</label>
+          <label><input type="radio" name="ins-style" value="recessed" checked /> Recessed (Yinwen)</label>
+        </div>
+      </div>
+      <div class="slider-row">
+        <label>Size <span id="v-fontsize">1.00</span></label>
+        <input type="range" id="s-fontsize" min="0.4" max="1.6" step="0.01" value="1.00" />
+      </div>
+      <div class="slider-row">
+        <label>Ink opacity <span id="v-inkopacity">0.92</span></label>
+        <input type="range" id="s-inkopacity" min="0.4" max="1" step="0.01" value="0.92" />
+      </div>
+      <div class="ins-actions">
+        <button class="ins-btn-small" id="ins-clear">Clear</button>
+        <button class="ins-btn-small" id="ins-deselect">Deselect</button>
+      </div>
+    </div>
+    <div class="ins-divider"></div>
+    <button class="preset-btn" id="btn-preset">Load Historical Preset</button>
+    <div class="ins-actions" style="margin-top:10px;">
+      <button class="ins-btn-small" id="btn-clear-all">Clear All Faces</button>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-material">
+    <div class="slider-row">
+      <label>Edge wear <span id="v-wear">0.65</span></label>
+      <input type="range" id="s-wear" min="0" max="1" step="0.01" value="0.65" />
+    </div>
+    <div class="slider-row">
+      <label>Patina <span id="v-patina">0.55</span></label>
+      <input type="range" id="s-patina" min="0" max="1" step="0.01" value="0.55" />
+    </div>
+    <div class="slider-row">
+      <label>Sheen <span id="v-sheen">0.40</span></label>
+      <input type="range" id="s-sheen" min="0" max="1" step="0.01" value="0.40" />
+    </div>
+    <div class="slider-row">
+      <label>Ink bleed <span id="v-ink">0.30</span></label>
+      <input type="range" id="s-ink" min="0" max="1" step="0.01" value="0.30" />
+    </div>
+    <div class="slider-row">
+      <label>Exposure <span id="v-exp">1.00</span></label>
+      <input type="range" id="s-exp" min="0.4" max="2" step="0.01" value="1.00" />
+    </div>
+  </div>
+</div>
+
+<div id="controls">
+  <button class="btn" data-view="iso">Isometric</button>
+  <button class="btn" data-view="top">Top</button>
+  <button class="btn" data-view="front">Front</button>
+  <button class="btn" data-view="bottom">Bottom</button>
+  <button class="btn" id="btn-spin">Auto-rotate</button>
+</div>
+
+<div id="hint">drag · rotate &nbsp;&nbsp; scroll · zoom</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.module.min.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ============================================================
+ *  GEOMETRY
+ *  The Dugu Seal is a rhombicuboctahedron: an Archimedean solid with
+ *  24 vertices, 48 edges of equal length, and 26 faces = 18 squares +
+ *  8 triangles. Face breakdown:
+ *    - 1 top square (cap)
+ *    - 1 bottom square (cap)
+ *    - 8 band squares around the equator
+ *    - 4 upper rectangles + 4 upper triangles
+ *    - 4 lower rectangles + 4 lower triangles
+ * ============================================================ */
+
+// Canonical rhombicuboctahedron: 24 verts = all permutations of (±1, ±1, ±(1+√2)).
+// We scale the whole thing so the bounding sphere radius matches our previous seal.
+const _S = 1 + Math.SQRT2;                      // 1 + √2 ≈ 2.4142
+const _SEAL_SCALE = 0.42;                       // overall size multiplier
+
+const RAW_VERTS = [
+  [-_S, -1, -1], [-_S, -1,  1], [-_S,  1, -1], [-_S,  1,  1],
+  [-1, -_S, -1], [-1, -_S,  1], [-1, -1, -_S], [-1, -1,  _S],
+  [-1,  1, -_S], [-1,  1,  _S], [-1,  _S, -1], [-1,  _S,  1],
+  [ 1, -_S, -1], [ 1, -_S,  1], [ 1, -1, -_S], [ 1, -1,  _S],
+  [ 1,  1, -_S], [ 1,  1,  _S], [ 1,  _S, -1], [ 1,  _S,  1],
+  [ _S, -1, -1], [ _S, -1,  1], [ _S,  1, -1], [ _S,  1,  1],
+];
+
+// Face indices generated from a verified enumeration (Euler χ = 2,
+// all edges length = 2, all face normals outward).
+const RAW_FACES = [
+  { name: 'top',          type: 'cap',        indices: [18, 10, 11, 19] },
+  { name: 'bottom',       type: 'cap',        indices: [ 5,  4, 12, 13] },
+  { name: 'band_0',       type: 'band',       indices: [ 6,  0,  2,  8] },
+  { name: 'band_1',       type: 'band',       indices: [14,  6,  8, 16] },
+  { name: 'band_2',       type: 'band',       indices: [20, 14, 16, 22] },
+  { name: 'band_3',       type: 'band',       indices: [21, 20, 22, 23] },
+  { name: 'band_4',       type: 'band',       indices: [17, 15, 21, 23] },
+  { name: 'band_5',       type: 'band',       indices: [ 9,  7, 15, 17] },
+  { name: 'band_6',       type: 'band',       indices: [ 3,  1,  7,  9] },
+  { name: 'band_7',       type: 'band',       indices: [ 2,  0,  1,  3] },
+  { name: 'upper_rect_0', type: 'upper_rect', indices: [16,  8, 10, 18] },
+  { name: 'upper_rect_1', type: 'upper_rect', indices: [22, 18, 19, 23] },
+  { name: 'upper_rect_2', type: 'upper_rect', indices: [11,  9, 17, 19] },
+  { name: 'upper_rect_3', type: 'upper_rect', indices: [10,  2,  3, 11] },
+  { name: 'upper_tri_0',  type: 'upper_tri',  indices: [ 8,  2, 10] },
+  { name: 'upper_tri_1',  type: 'upper_tri',  indices: [22, 16, 18] },
+  { name: 'upper_tri_2',  type: 'upper_tri',  indices: [19, 17, 23] },
+  { name: 'upper_tri_3',  type: 'upper_tri',  indices: [11,  3,  9] },
+  { name: 'lower_rect_0', type: 'lower_rect', indices: [12,  4,  6, 14] },
+  { name: 'lower_rect_1', type: 'lower_rect', indices: [13, 12, 20, 21] },
+  { name: 'lower_rect_2', type: 'lower_rect', indices: [ 7,  5, 13, 15] },
+  { name: 'lower_rect_3', type: 'lower_rect', indices: [ 1,  0,  4,  5] },
+  { name: 'lower_tri_0',  type: 'lower_tri',  indices: [ 4,  0,  6] },
+  { name: 'lower_tri_1',  type: 'lower_tri',  indices: [20, 12, 14] },
+  { name: 'lower_tri_2',  type: 'lower_tri',  indices: [15, 13, 21] },
+  { name: 'lower_tri_3',  type: 'lower_tri',  indices: [ 7,  1,  5] },
+];
+
+function buildSealData() {
+  const verts = RAW_VERTS.map(([x, y, z]) =>
+    new THREE.Vector3(x * _SEAL_SCALE, y * _SEAL_SCALE, z * _SEAL_SCALE)
+  );
+  // Deep-copy face list
+  const faces = RAW_FACES.map(f => ({
+    name: f.name, type: f.type, indices: f.indices.slice(),
+  }));
+  return { verts, faces };
+}
+
+function buildBufferGeometry(sealData) {
+  const { verts, faces } = sealData;
+  const positions = [], normals = [], uvs = [], atlasUvs = [];
+  const faceIds = [], faceTypes = [];
+  const indices = [];
+  const typeMap = {
+    cap: 0, band: 1,
+    upper_rect: 2, upper_tri: 3,
+    lower_rect: 4, lower_tri: 5,
+  };
+
+  // Atlas: 6 columns × 5 rows = 30 slots, we use faces 0..25
+  const ATLAS_COLS = 6;
+  const ATLAS_ROWS = 5;
+
+  let vOffset = 0;
+
+  faces.forEach((face, faceId) => {
+    const poly = face.indices.map(i => verts[i]);
+    const n = poly.length;
+
+    const e1 = poly[1].clone().sub(poly[0]);
+    const e2 = poly[2].clone().sub(poly[0]);
+    const normal = e1.cross(e2).normalize();
+
+    const origin = poly[0].clone();
+    const uAxis = poly[1].clone().sub(origin).normalize();
+    const vAxis = normal.clone().cross(uAxis).normalize();
+
+    const planar = poly.map(p => {
+      const d = p.clone().sub(origin);
+      return { u: d.dot(uAxis), v: d.dot(vAxis) };
+    });
+    const uMin = Math.min(...planar.map(p => p.u));
+    const uMax = Math.max(...planar.map(p => p.u));
+    const vMin = Math.min(...planar.map(p => p.v));
+    const vMax = Math.max(...planar.map(p => p.v));
+    const uRange = uMax - uMin || 1;
+    const vRange = vMax - vMin || 1;
+
+    // Face -> atlas slot mapping
+    const col = faceId % ATLAS_COLS;
+    const row = Math.floor(faceId / ATLAS_COLS);
+    // Canvas rows are authored top-to-bottom, but the texture sampling path
+    // ends up vertically inverted relative to our UV atlas layout. Flip the
+    // atlas row here so each geometric face samples its own faceId cell.
+    const atlasRow = ATLAS_ROWS - 1 - row;
+
+    for (let k = 0; k < n; k++) {
+      positions.push(poly[k].x, poly[k].y, poly[k].z);
+      normals.push(normal.x, normal.y, normal.z);
+      const localU = (planar[k].u - uMin) / uRange;
+      const localV = (planar[k].v - vMin) / vRange;
+      uvs.push(localU, localV);
+      // Atlas UV: slot position + local UV / grid dims
+      atlasUvs.push(
+        (col + localU) / ATLAS_COLS,
+        (atlasRow + localV) / ATLAS_ROWS
+      );
+      faceIds.push(faceId);
+      faceTypes.push(typeMap[face.type]);
+    }
+    for (let k = 1; k < n - 1; k++) {
+      indices.push(vOffset, vOffset + k, vOffset + k + 1);
+    }
+    vOffset += n;
+  });
+
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geom.setAttribute('normal',   new THREE.Float32BufferAttribute(normals, 3));
+  geom.setAttribute('uv',       new THREE.Float32BufferAttribute(uvs, 2));
+  geom.setAttribute('atlasUv',  new THREE.Float32BufferAttribute(atlasUvs, 2));
+  geom.setAttribute('faceId',   new THREE.Float32BufferAttribute(faceIds, 1));
+  geom.setAttribute('faceType', new THREE.Float32BufferAttribute(faceTypes, 1));
+  geom.setIndex(indices);
+  // Store atlas dims on geometry for use elsewhere
+  geom.userData.atlas = { cols: ATLAS_COLS, rows: ATLAS_ROWS };
+  return geom;
+}
+
+/* ============================================================
+ *  SCENE & RENDERER
+ * ============================================================ */
+const container = document.getElementById('viewport');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050405);
+
+const camera = new THREE.PerspectiveCamera(
+  32, window.innerWidth / window.innerHeight, 0.1, 100
+);
+camera.position.set(5.0, 3.0, 5.6);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.domElement.tabIndex = 0;
+renderer.domElement.style.outline = 'none';
+container.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 1.8;
+controls.maxDistance = 10;
+controls.target.set(0, 0, 0);
+
+const stampBottomCanvas = document.getElementById('stamp-bottom-canvas');
+const stampBottomRenderer = new THREE.WebGLRenderer({
+  canvas: stampBottomCanvas,
+  antialias: true,
+  alpha: true,
+});
+stampBottomRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+stampBottomRenderer.setSize(stampBottomCanvas.width, stampBottomCanvas.height, false);
+stampBottomRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+stampBottomRenderer.toneMappingExposure = 1.05;
+stampBottomRenderer.outputColorSpace = THREE.SRGBColorSpace;
+const stampBottomScene = new THREE.Scene();
+stampBottomScene.background = new THREE.Color(0xf4ede2);
+const stampBottomCamera = new THREE.PerspectiveCamera(24, 1, 0.1, 100);
+const stampBottomTarget = new THREE.Vector3();
+const stampBottomOffset = new THREE.Vector3(0, -4.2, 0);
+stampBottomCamera.up.set(0, 0, -1);
+
+const stampingCameraPos = new THREE.Vector3(0, 1.5, 6.8);
+const stampingCameraTarget = new THREE.Vector3(0, -0.05, 0);
+let stampingCameraLocked = false;
+let isStampingMode = false;
+
+/* ============================================================
+ *  PROCEDURAL HDR ENVIRONMENT (museum-case lighting)
+ * ============================================================ */
+function buildEnvironmentTexture() {
+  const size = 256;
+  const cubeRT = new THREE.WebGLCubeRenderTarget(size, {
+    generateMipmaps: true,
+    minFilter: THREE.LinearMipmapLinearFilter,
+  });
+  const cubeCam = new THREE.CubeCamera(0.1, 100, cubeRT);
+
+  const envScene = new THREE.Scene();
+  const bgGeo = new THREE.SphereGeometry(50, 32, 32);
+  const bgMat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    vertexShader: `
+      varying vec3 vWorldPos;
+      void main() {
+        vWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      varying vec3 vWorldPos;
+      void main() {
+        vec3 dir = normalize(vWorldPos);
+        float up = clamp(dir.y, -1.0, 1.0);
+        vec3 ceiling = vec3(0.015, 0.010, 0.006);
+        vec3 floor_  = vec3(0.060, 0.035, 0.020);
+        vec3 col = mix(floor_, ceiling, smoothstep(-0.3, 0.6, up));
+        vec3 lamps[4];
+        lamps[0] = normalize(vec3( 1.0, 0.8,  0.3));
+        lamps[1] = normalize(vec3(-1.0, 0.8,  0.3));
+        lamps[2] = normalize(vec3( 0.2, 0.9, -1.0));
+        lamps[3] = normalize(vec3(-0.2, 0.4, -1.0));
+        for (int i = 0; i < 4; i++) {
+          float d = max(0.0, dot(dir, lamps[i]));
+          float hot = pow(d, 128.0) * 6.0 + pow(d, 24.0) * 0.8;
+          col += vec3(1.0, 0.78, 0.52) * hot;
+        }
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+  });
+  envScene.add(new THREE.Mesh(bgGeo, bgMat));
+  cubeCam.update(renderer, envScene);
+
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  pmrem.compileCubemapShader();
+  const envMap = pmrem.fromCubemap(cubeRT.texture).texture;
+
+  bgGeo.dispose();
+  bgMat.dispose();
+  cubeRT.dispose();
+  pmrem.dispose();
+  return envMap;
+}
+
+scene.environment = buildEnvironmentTexture();
+
+/* ============================================================
+ *  DIRECT LIGHTING (museum spotlights)
+ * ============================================================ */
+const key = new THREE.SpotLight(0xffd8a8, 14, 14, Math.PI/6, 0.35, 1.4);
+key.position.set(2.6, 3.6, 2.4);
+key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+key.shadow.bias = -0.0005;
+key.shadow.radius = 2;
+scene.add(key, key.target);
+
+const fill = new THREE.SpotLight(0x88a8c8, 2.5, 14, Math.PI/5, 0.5, 1.2);
+fill.position.set(-3.0, 1.2, -0.8);
+scene.add(fill, fill.target);
+
+const rim = new THREE.SpotLight(0xffb080, 5.0, 14, Math.PI/5, 0.5, 1.2);
+rim.position.set(-0.5, 2.2, -3.2);
+scene.add(rim, rim.target);
+
+const ambient = new THREE.AmbientLight(0x2a1a10, 0.35);
+scene.add(ambient);
+
+/* ============================================================
+ *  PEDESTAL (dark disc for contact shadow)
+ * ============================================================ */
+const pedestalGeo = new THREE.CircleGeometry(4, 64);
+const pedestalMat = new THREE.MeshStandardMaterial({
+  color: 0x0a0806, roughness: 0.9, metalness: 0.0,
+});
+const pedestal = new THREE.Mesh(pedestalGeo, pedestalMat);
+pedestal.rotation.x = -Math.PI / 2;
+pedestal.position.y = -0.95;
+pedestal.receiveShadow = true;
+scene.add(pedestal);
+
+class Paper {
+  constructor(size = 3.0, resolution = 1024, y = -0.95) {
+    this.size = size;
+    this.resolution = resolution;
+    this.y = y;
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = resolution;
+    this.canvas.height = resolution;
+    this.ctx = this.canvas.getContext('2d');
+    this._paintBackground();
+
+    this.texture = new THREE.CanvasTexture(this.canvas);
+    this.texture.colorSpace = THREE.SRGBColorSpace;
+    this.texture.anisotropy = 8;
+    this.texture.minFilter = THREE.LinearFilter;
+    this.texture.magFilter = THREE.LinearFilter;
+    this.texture.generateMipmaps = false;
+    this.stampCanvas = document.createElement('canvas');
+    this.stampCtx = this.stampCanvas.getContext('2d', { willReadFrequently: true });
+    this.stamps = [];
+
+    const geom = new THREE.PlaneGeometry(size, size, 1, 1);
+    const mat = new THREE.MeshStandardMaterial({
+      map: this.texture,
+      roughness: 0.92,
+      metalness: 0.0,
+      color: 0xffffff,
+    });
+    this.mesh = new THREE.Mesh(geom, mat);
+    this.mesh.rotation.x = -Math.PI / 2;
+    this.mesh.position.y = y;
+    this.mesh.visible = false;
+    this.mesh.receiveShadow = true;
+  }
+
+  _paintBackground() {
+    const ctx = this.ctx;
+    const R = this.canvas.width;
+    ctx.fillStyle = '#f1e6cf';
+    ctx.fillRect(0, 0, R, R);
+
+    for (let i = 0; i < 6000; i++) {
+      const x = Math.random() * R;
+      const y = Math.random() * R;
+      const s = Math.random() * 1.2 + 0.3;
+      const a = Math.random() * 0.08;
+      ctx.fillStyle = `rgba(130, 100, 70, ${a})`;
+      ctx.beginPath();
+      ctx.arc(x, y, s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    for (let i = 0; i < 90; i++) {
+      const x = Math.random() * R;
+      const y = Math.random() * R;
+      const s = Math.random() * 2.2 + 0.5;
+      ctx.fillStyle = `rgba(90, 60, 40, ${0.2 + Math.random() * 0.25})`;
+      ctx.beginPath();
+      ctx.arc(x, y, s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const grad = ctx.createRadialGradient(R / 2, R / 2, R * 0.35, R / 2, R / 2, R * 0.55);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, 'rgba(80, 55, 30, 0.18)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, R, R);
+  }
+
+  clear() {
+    this.stamps = [];
+    this._paintBackground();
+    this.texture.needsUpdate = true;
+    paperTextureDirty = true;
+  }
+
+  stampAt(worldX, worldZ, faceId, atlas, pressure = 1.0, rotation = 0.0, stampSizeWorld = 0.8) {
+    const ctx = this.ctx;
+    const R = this.canvas.width;
+    const px = (worldX / this.size + 0.5) * R;
+    const py = (worldZ / this.size + 0.5) * R;
+    const cellPx = atlas.cellPx;
+    const padPx = atlas.padPx || 0;
+    const innerPx = atlas.innerPx || cellPx;
+    const col = faceId % atlas.cols;
+    const row = Math.floor(faceId / atlas.cols);
+    const srcX = col * cellPx + padPx;
+    const srcY = row * cellPx + padPx;
+    const faceData = atlas.faces[faceId] || null;
+    const isRecessed = !faceData || faceData.style !== 'raised';
+    const pressureNorm = THREE.MathUtils.clamp(pressure, 0, 1);
+    const stampSizePx = Math.max(24, Math.round(stampSizeWorld / this.size * R));
+    const processPx = stampSizePx;
+    const off = this.stampCanvas;
+    const octx = this.stampCtx;
+    if (!octx) return;
+    if (off.width !== processPx || off.height !== processPx) {
+      off.width = processPx;
+      off.height = processPx;
+    } else {
+      octx.clearRect(0, 0, processPx, processPx);
+    }
+
+    octx.save();
+    octx.translate(processPx, 0);
+    octx.scale(-1, 1);
+    octx.drawImage(
+      atlas.canvas,
+      srcX, srcY, innerPx, innerPx,
+      0, 0, processPx, processPx
+    );
+    octx.restore();
+
+    const img = octx.getImageData(0, 0, processPx, processPx);
+    const d = img.data;
+    const cx = processPx / 2;
+    const cy = processPx / 2;
+    for (let i = 0; i < d.length; i += 4) {
+      const sourceAlpha = d[i + 3];
+      const maskAlpha = isRecessed ? (255 - sourceAlpha) : sourceAlpha;
+      if (maskAlpha < 5) {
+        d[i + 3] = 0;
+        continue;
+      }
+
+      const xi = (i / 4) % processPx;
+      const yi = Math.floor((i / 4) / processPx);
+      const n = Math.sin(xi * 0.23) * Math.cos(yi * 0.17)
+        + Math.sin(xi * 0.09 + yi * 0.11) * 0.5
+        + (Math.random() - 0.5) * 0.4;
+      const noiseMod = 0.65 + 0.35 * (n * 0.5 + 0.5);
+
+      const dx = (xi - cx) / cx;
+      const dy = (yi - cy) / cy;
+      const r2 = dx * dx + dy * dy;
+      const pressureFalloff = Math.max(0.55, 1.0 - r2 * 0.35);
+      const factor = isRecessed
+        ? pressureNorm * pressureFalloff
+        : pressureNorm * noiseMod * pressureFalloff;
+      d[i] = Math.round(175 + 40 * (1 - factor));
+      d[i + 1] = Math.round(35 + 25 * (1 - factor));
+      d[i + 2] = Math.round(25 + 15 * (1 - factor));
+      d[i + 3] = Math.round(maskAlpha * factor * 0.92);
+    }
+    octx.putImageData(img, 0, 0);
+
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(rotation);
+    ctx.translate(-stampSizePx / 2, -stampSizePx / 2);
+    ctx.drawImage(off, 0, 0, stampSizePx, stampSizePx);
+    ctx.restore();
+
+    this.stamps.push({ x: worldX, y: worldZ, rotation });
+    this.texture.needsUpdate = true;
+    paperTextureDirty = true;
+  }
+}
+
+const paper = new Paper(3.0, 1024, -0.95);
+scene.add(paper.mesh);
+let paperTextureDirty = true;
+
+/* ============================================================
+ *  INSCRIPTION ATLAS
+ *  One big canvas of N×M cells; each face's UVs map to one cell.
+ *  Inscriptions are drawn per cell; the canvas is wrapped as a
+ *  CanvasTexture sampled by the fragment shader to composite onto
+ *  the lacquer albedo.
+ * ============================================================ */
+class InscriptionAtlas {
+  constructor(cols, rows, cellPx = 384, padPx = 28) {
+    this.cols = cols;
+    this.rows = rows;
+    this.cellPx = cellPx;
+    this.padPx = padPx;
+    this.innerPx = cellPx - 2 * padPx;
+
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = cols * cellPx;
+    this.canvas.height = rows * cellPx;
+    this.ctx = this.canvas.getContext('2d');
+
+    // Start fully transparent
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // Per-face data: { text, fontSize, opacity, style }
+    this.faces = {};
+    this.mirroredFaceIds = new Set();
+
+    this.texture = new THREE.CanvasTexture(this.canvas);
+    this.texture.colorSpace = THREE.SRGBColorSpace;
+    this.texture.anisotropy = 8;
+    this.texture.minFilter = THREE.LinearFilter;
+    this.texture.magFilter = THREE.LinearFilter;
+    this.texture.generateMipmaps = false;
+
+    this.styleCanvas = document.createElement('canvas');
+    this.styleCanvas.width = cols;
+    this.styleCanvas.height = rows;
+    this.styleCtx = this.styleCanvas.getContext('2d', { willReadFrequently: true });
+    this.styleTexture = new THREE.CanvasTexture(this.styleCanvas);
+    this.styleTexture.colorSpace = THREE.NoColorSpace;
+    this.styleTexture.minFilter = THREE.NearestFilter;
+    this.styleTexture.magFilter = THREE.NearestFilter;
+    this.styleTexture.generateMipmaps = false;
+    this._refreshStyleTexture();
+  }
+
+  setMirrored(faceId, mirrored) {
+    const was = this.mirroredFaceIds.has(faceId);
+    if (mirrored) this.mirroredFaceIds.add(faceId);
+    else this.mirroredFaceIds.delete(faceId);
+    if (was !== mirrored) {
+      this._drawFace(faceId);
+      this.texture.needsUpdate = true;
+    }
+  }
+
+  setFace(faceId, data) {
+    this.faces[faceId] = { text: '', fontSize: 1.0, opacity: 0.92, style: 'recessed', ...this.faces[faceId], ...data };
+    this._drawFace(faceId);
+    this.texture.needsUpdate = true;
+    this._drawStyle(faceId);
+    this.styleTexture.needsUpdate = true;
+  }
+
+  clearFace(faceId) {
+    delete this.faces[faceId];
+    const col = faceId % this.cols;
+    const row = Math.floor(faceId / this.cols);
+    const x = col * this.cellPx;
+    const y = row * this.cellPx;
+    this.ctx.clearRect(x, y, this.cellPx, this.cellPx);
+    this.texture.needsUpdate = true;
+    this._drawStyle(faceId);
+    this.styleTexture.needsUpdate = true;
+  }
+
+  clearAll() {
+    this.faces = {};
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.texture.needsUpdate = true;
+    this._refreshStyleTexture();
+    this.styleTexture.needsUpdate = true;
+  }
+
+  _drawFace(faceId) {
+    const data = this.faces[faceId];
+    if (!data) return;
+
+    const col = faceId % this.cols;
+    const row = Math.floor(faceId / this.cols);
+    const x = col * this.cellPx;
+    const y = row * this.cellPx;
+    const size = this.cellPx;
+    const inner = this.innerPx;
+    const ctx = this.ctx;
+
+    // Clear cell
+    ctx.clearRect(x, y, size, size);
+
+    const text = (data.text || '').trim();
+    if (!text) return;
+
+    // Cinnabar red ink with slight variation per-face
+    const inkR = 180 + Math.floor(Math.sin(faceId * 1.7) * 10);
+    const inkG = 40 + Math.floor(Math.cos(faceId * 2.3) * 8);
+    const inkB = 25 + Math.floor(Math.sin(faceId * 0.9) * 6);
+    const alpha = data.opacity;
+
+    // Choose layout: vertical if 2+ chars, horizontal if 1
+    const chars = Array.from(text);
+    const nChars = chars.length;
+
+    // Font size scaling: more chars → smaller font
+    const baseFontPx = inner * 0.62;
+    const scaleForCount = nChars === 1 ? 1.0 : nChars === 2 ? 0.8 : nChars === 3 ? 0.58 : 0.48;
+    const fontPx = baseFontPx * scaleForCount * data.fontSize;
+
+    // Seal-script / Chinese font stack
+    const fontStack = `"FangSong", "STFangsong", "仿宋", "KaiTi", "STKaiti", "楷体", "Source Han Serif SC", serif`;
+    ctx.save();
+    if (this.mirroredFaceIds.has(faceId)) {
+      ctx.translate(x + size, y);
+      ctx.scale(-1, 1);
+      ctx.translate(-x, 0);
+    }
+    ctx.translate(x + size / 2, y + size / 2);
+
+    // Draw each character with slight random offset / rotation for hand-stamped feel
+    ctx.fillStyle = `rgba(${inkR}, ${inkG}, ${inkB}, ${alpha})`;
+    ctx.font = `bold ${fontPx}px ${fontStack}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Layout: vertical 2-column if 4 chars, single column if 2-3, single char if 1
+    const layout = this._layoutChars(nChars);
+    const positions = layout(fontPx);
+
+    chars.forEach((ch, i) => {
+      if (i >= positions.length) return;
+      const { px, py } = positions[i];
+      // Slight jitter
+      const jx = (Math.sin(faceId * 7 + i * 13) * 0.015) * fontPx;
+      const jy = (Math.cos(faceId * 5 + i * 11) * 0.015) * fontPx;
+      const jr = (Math.sin(faceId * 3 + i * 17) * 0.025);
+      ctx.save();
+      ctx.translate(px + jx, py + jy);
+      ctx.rotate(jr);
+      ctx.fillText(ch, 0, 0);
+      ctx.restore();
+    });
+
+    ctx.restore();
+
+    // Post: overlay slight noise for hand-stamp imperfection (subtle)
+    this._addInkImperfection(x, y, size);
+  }
+
+  _layoutChars(n) {
+    // Returns a function of fontPx -> [{px, py}, ...] positions relative to cell center
+    if (n === 1) return (fp) => [{ px: 0, py: 0 }];
+    if (n === 2) return (fp) => [
+      { px: 0, py: -fp * 0.45 },
+      { px: 0, py:  fp * 0.45 },
+    ];
+    if (n === 3) return (fp) => [
+      { px: 0, py: -fp * 0.72 },
+      { px: 0, py:  0          },
+      { px: 0, py:  fp * 0.72 },
+    ];
+    if (n === 4) return (fp) => [
+      // Traditional 2x2 reading order: right column top, right column bottom, left column top, left column bottom
+      // But for Latin readers, let's do left-to-right top-to-bottom for now
+      { px: -fp * 0.48, py: -fp * 0.52 },
+      { px:  fp * 0.48, py: -fp * 0.52 },
+      { px: -fp * 0.48, py:  fp * 0.52 },
+      { px:  fp * 0.48, py:  fp * 0.52 },
+    ];
+    // 5+ chars: arrange in a 2-col vertical list (truncated)
+    return (fp) => {
+      const out = [];
+      const perCol = Math.ceil(n / 2);
+      for (let i = 0; i < n; i++) {
+        const c = Math.floor(i / perCol);
+        const r = i % perCol;
+        out.push({
+          px: (c === 0 ? -0.5 : 0.5) * fp * 0.95,
+          py: (r - (perCol - 1) / 2) * fp * 1.02,
+        });
+      }
+      return out;
+    };
+  }
+
+  _addInkImperfection(x, y, size) {
+    // Pick out ink pixels (alpha > 0), add slight noise/fade on a small fraction
+    const ctx = this.ctx;
+    const img = ctx.getImageData(x, y, size, size);
+    const d = img.data;
+    for (let i = 3; i < d.length; i += 4) {
+      if (d[i] > 20) {
+        // Slight alpha variation so ink looks hand-pressed, not digital
+        const n = (Math.random() - 0.5) * 60;
+        d[i] = Math.max(0, Math.min(255, d[i] + n));
+      }
+    }
+    ctx.putImageData(img, x, y);
+  }
+
+  _refreshStyleTexture() {
+    this.styleCtx.clearRect(0, 0, this.cols, this.rows);
+    Object.keys(this.faces).forEach(faceId => this._drawStyle(Number(faceId)));
+  }
+
+  _drawStyle(faceId) {
+    const data = this.faces[faceId];
+    const col = faceId % this.cols;
+    const row = Math.floor(faceId / this.cols);
+    const isRaised = !!data && data.style === 'raised' && (data.text || '').trim();
+    this.styleCtx.fillStyle = isRaised ? 'rgb(255,255,255)' : 'rgb(0,0,0)';
+    this.styleCtx.fillRect(col, row, 1, 1);
+  }
+}
+
+const ATLAS_COLS = 6, ATLAS_ROWS = 5;
+const inscriptionAtlas = new InscriptionAtlas(ATLAS_COLS, ATLAS_ROWS, 384, 28);
+
+/* ============================================================
+ *  PROCEDURAL SEAL MATERIAL
+ * ============================================================ */
+const sealUniforms = {
+  uWear:    { value: 0.65 },
+  uPatina:  { value: 0.55 },
+  uSheen:   { value: 0.40 },
+  uInk:     { value: 0.30 },
+  uTime:    { value: 0 },
+  uInscriptionTex: { value: inscriptionAtlas.texture },
+  uInscriptionStyleTex: { value: inscriptionAtlas.styleTexture },
+  uHighlightFaceId: { value: -1.0 },
+};
+
+const sealMaterial = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  roughness: 0.6,
+  metalness: 0.0,
+  flatShading: false,   // micro-bump normals provide surface detail
+  envMapIntensity: 0.7,
+});
+
+sealMaterial.onBeforeCompile = (shader) => {
+  Object.assign(shader.uniforms, sealUniforms);
+
+  // --- VERTEX SHADER: declare and compute world-position + UV varyings ---
+  shader.vertexShader = shader.vertexShader.replace(
+    '#include <common>',
+    `#include <common>
+    attribute vec2 atlasUv;
+    attribute float faceId;
+    varying vec3 vWorldPos;
+    varying vec3 vWorldNormal;
+    varying vec2 vFaceUv;
+    varying vec2 vAtlasUv;
+    varying float vFaceId;`
+  );
+  shader.vertexShader = shader.vertexShader.replace(
+    '#include <uv_vertex>',
+    `#include <uv_vertex>
+    vFaceUv = uv;
+    vAtlasUv = atlasUv;
+    vFaceId = faceId;`
+  );
+  shader.vertexShader = shader.vertexShader.replace(
+    '#include <worldpos_vertex>',
+    `#include <worldpos_vertex>
+    vWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+    vWorldNormal = normalize(mat3(modelMatrix) * normal);`
+  );
+
+  // --- FRAGMENT SHADER: inject helpers + procedural weathering ---
+  shader.fragmentShader = shader.fragmentShader.replace(
+    '#include <common>',
+    `#include <common>
+    varying vec3 vWorldPos;
+    varying vec3 vWorldNormal;
+    varying vec2 vFaceUv;
+    varying vec2 vAtlasUv;
+    varying float vFaceId;
+
+    uniform float uWear;
+    uniform float uPatina;
+    uniform float uSheen;
+    uniform float uInk;
+    uniform sampler2D uInscriptionTex;
+    uniform sampler2D uInscriptionStyleTex;
+    uniform float uHighlightFaceId;
+
+    float hash31(vec3 p) {
+      p = fract(p * 0.1031);
+      p += dot(p, p.yzx + 33.33);
+      return fract((p.x + p.y) * p.z);
+    }
+    float vnoise(vec3 p) {
+      vec3 i = floor(p), f = fract(p);
+      f = f*f*(3.0 - 2.0*f);
+      float n000 = hash31(i + vec3(0,0,0));
+      float n100 = hash31(i + vec3(1,0,0));
+      float n010 = hash31(i + vec3(0,1,0));
+      float n110 = hash31(i + vec3(1,1,0));
+      float n001 = hash31(i + vec3(0,0,1));
+      float n101 = hash31(i + vec3(1,0,1));
+      float n011 = hash31(i + vec3(0,1,1));
+      float n111 = hash31(i + vec3(1,1,1));
+      return mix(
+        mix(mix(n000, n100, f.x), mix(n010, n110, f.x), f.y),
+        mix(mix(n001, n101, f.x), mix(n011, n111, f.x), f.y),
+        f.z);
+    }
+    float fbm(vec3 p) {
+      float v = 0.0; float a = 0.5;
+      for (int i = 0; i < 5; i++) {
+        v += a * vnoise(p);
+        p = p * 2.03 + vec3(17.3, 9.1, 4.7);
+        a *= 0.5;
+      }
+      return v;
+    }
+    float woodGrain(vec3 p) {
+      float rings = fract(length(p.xz) * 7.0 + fbm(p * 3.0) * 2.0);
+      float streak = fbm(vec3(p.x * 2.0, p.y * 20.0, p.z * 2.0));
+      return mix(rings, streak, 0.5);
+    }
+    float inscriptionFill(float alphaValue) {
+      return smoothstep(0.12, 0.42, alphaValue);
+    }
+    float inscriptionHeight(float sharpAlpha, float blurAlpha) {
+      float solidCore = inscriptionFill(sharpAlpha);
+      float softenedEdge = smoothstep(0.18, 0.72, blurAlpha);
+      return max(softenedEdge, solidCore * 0.96);
+    }
+    `
+  );
+
+  // We need these reachable by the <roughnessmap_fragment> and
+  // <normal_fragment_maps> injections, so declare at the top of main().
+  shader.fragmentShader = shader.fragmentShader.replace(
+    'void main() {',
+    `void main() {
+      float gWearMask = 0.0;
+      float gInkDepth = 0.0;
+      float gInscriptionStyle = -1.0;
+      float raisedStyle = 0.0;
+      float recessedStyle = 0.0;
+      vec2 gWarpedUv = vec2(0.0);
+      float gFaceUpFacing = 0.0;
+    `
+  );
+
+  // Override albedo via <color_fragment>
+  shader.fragmentShader = shader.fragmentShader.replace(
+    '#include <color_fragment>',
+    `
+    #include <color_fragment>
+
+    // distance-to-edge in per-face UV space (0 at edge, 0.5 at center of a square)
+    float eU = min(vFaceUv.x, 1.0 - vFaceUv.x);
+    float eV = min(vFaceUv.y, 1.0 - vFaceUv.y);
+    float edgeDist = min(eU, eV);
+
+    vec3 wp = vWorldPos;
+    float n_large = fbm(wp * 1.8);
+    float n_med   = fbm(wp * 6.0 + 11.3);
+    float n_fine  = fbm(wp * 28.0 + 7.1);
+
+    // Base lacquer (deep red-brown cinnabar tone)
+    vec3 lacquerA = vec3(0.24, 0.07, 0.035);
+    vec3 lacquerB = vec3(0.44, 0.16, 0.08);
+    vec3 lacquer  = mix(lacquerA, lacquerB, smoothstep(0.30, 0.75, n_large));
+
+    // Broad, low-frequency color drift — different faces age slightly differently
+    float faceDrift = fbm(wp * 0.7 + 4.2);
+    lacquer *= mix(0.82, 1.12, faceDrift);
+
+    // Darkened oxidation patches
+    float darkPatch = smoothstep(0.55, 0.85, n_med);
+    lacquer *= mix(1.0, 0.72, darkPatch * uPatina);
+
+    // Wood beneath (exposed by wear) — noticeably lighter / warmer than lacquer
+    float grain = woodGrain(wp * vec3(3.0, 12.0, 3.0));
+    vec3 wood = mix(vec3(0.68, 0.42, 0.22), vec3(0.48, 0.28, 0.14), grain);
+
+    // --- Edge darkening (simulates AO + thinned/dulled lacquer at facet edges) ---
+    // NOT bright wear bands — historical lacquer pieces like this show subtle
+    // darkening at edges, not dramatic lightening.
+    float edgeDark = 1.0 - smoothstep(0.0, 0.08, edgeDist);
+    edgeDark *= mix(0.6, 1.0, fbm(wp * 14.0));  // break up with noise
+
+    // --- Occasional wear patches where wood shows through (uncommon, organic) ---
+    float wearNoise = fbm(wp * 7.0 + 3.1);
+    float wearPatch = smoothstep(0.72, 0.82, wearNoise);
+    // Concentrate near edges but allow occasional mid-face spots
+    wearPatch *= mix(0.3, 1.0, 1.0 - smoothstep(0.0, 0.25, edgeDist));
+    float wearMask = wearPatch * uWear;
+    gWearMask = wearMask;
+
+    vec3 albedo = mix(lacquer, wood, wearMask * 0.7);
+
+    // Apply edge darkening (the main "aged" cue)
+    albedo *= mix(1.0, 0.45, edgeDark * 0.85);
+
+    // Cinnabar ink residue — subtle warm tint in mid-face region
+    vec3 ink = vec3(0.72, 0.25, 0.10);
+    float inkMask = smoothstep(0.08, 0.35, edgeDist) * uInk * (0.4 + 0.6 * n_med);
+    albedo = mix(albedo, albedo * ink * 1.8, inkMask * 0.2);
+
+    // Micro brightness variation
+    albedo *= 0.88 + 0.24 * n_fine;
+
+    // --- Inscription tint -----------------------------------------------
+    // Keep the albedo physically clean: only the base material plus the
+    // inscription pigment. Relief/shadowing comes later from parallax + normals.
+    vec2 atlasTexel = vec2(1.0 / (${ATLAS_COLS}.0 * 384.0), 1.0 / (${ATLAS_ROWS}.0 * 384.0));
+    gWarpedUv = vAtlasUv + vec2(fbm(vWorldPos * 80.0), fbm(vWorldPos * 80.0 + 13.0)) * 0.0015;
+    float insSharp = texture2D(uInscriptionTex, gWarpedUv).a;
+    float blurR = 2.2;  // multi-texel blur radius in texel units
+
+    // Center (9-tap blur)
+    float insBlur = 0.0;
+    insBlur += insSharp * 0.25;
+    insBlur += texture2D(uInscriptionTex, gWarpedUv + atlasTexel * blurR * vec2( 1,  0)).a * 0.125;
+    insBlur += texture2D(uInscriptionTex, gWarpedUv + atlasTexel * blurR * vec2(-1,  0)).a * 0.125;
+    insBlur += texture2D(uInscriptionTex, gWarpedUv + atlasTexel * blurR * vec2( 0,  1)).a * 0.125;
+    insBlur += texture2D(uInscriptionTex, gWarpedUv + atlasTexel * blurR * vec2( 0, -1)).a * 0.125;
+    insBlur += texture2D(uInscriptionTex, gWarpedUv + atlasTexel * blurR * vec2( 1,  1)).a * 0.0625;
+    insBlur += texture2D(uInscriptionTex, gWarpedUv + atlasTexel * blurR * vec2(-1,  1)).a * 0.0625;
+    insBlur += texture2D(uInscriptionTex, gWarpedUv + atlasTexel * blurR * vec2( 1, -1)).a * 0.0625;
+    insBlur += texture2D(uInscriptionTex, gWarpedUv + atlasTexel * blurR * vec2(-1, -1)).a * 0.0625;
+
+    // Reduce carved shading where lacquer has worn (carved parts wear too)
+    float insFill = inscriptionFill(insSharp);
+    float insMask = inscriptionHeight(insSharp, insBlur) * (1.0 - gWearMask * 0.5);
+    float styleMask = texture2D(uInscriptionStyleTex, vAtlasUv).r;
+    gInscriptionStyle = mix(-1.0, 1.0, step(0.5, styleMask));
+    raisedStyle = max(gInscriptionStyle, 0.0);
+    recessedStyle = max(-gInscriptionStyle, 0.0);
+    gInkDepth = insMask;
+
+    // Ink color (cinnabar, from the texture)
+    vec3 inkColor = texture2D(uInscriptionTex, gWarpedUv).rgb;
+    if (length(inkColor) < 0.01) inkColor = vec3(0.70, 0.16, 0.10);
+
+    float inkBlend = insFill * mix(0.74, 0.90, raisedStyle);
+    albedo = mix(albedo, inkColor, inkBlend);
+
+    // --- Selection highlight: subtle warm rim on selected face ---
+    if (uHighlightFaceId >= 0.0 && abs(vFaceId - uHighlightFaceId) < 0.5) {
+      float hEdge = 1.0 - smoothstep(0.0, 0.04, edgeDist);
+      albedo += vec3(0.45, 0.22, 0.08) * hEdge * 0.9;
+    }
+
+    diffuseColor.rgb = albedo;
+    `
+  );
+
+  // Roughness: polished where clean, rough where worn
+  shader.fragmentShader = shader.fragmentShader.replace(
+    '#include <roughnessmap_fragment>',
+    `
+    float baseRough = mix(0.55, 0.88, gWearMask);
+    baseRough = mix(baseRough, baseRough + 0.12, 1.0 - uSheen);
+    baseRough += (fbm(vWorldPos * 18.0) - 0.5) * 0.12;
+    // Engraved grooves are rougher than the polished lacquer around them
+    baseRough = mix(baseRough, 0.85, gInkDepth * 0.7);
+    baseRough = mix(baseRough, baseRough + 0.08, gInkDepth * recessedStyle * 0.85);
+    baseRough = mix(baseRough, baseRough - 0.10, gInkDepth * raisedStyle * 0.75);
+    float roughnessFactor = clamp(baseRough, 0.35, 0.98);
+    `
+  );
+
+  // Subtle normal perturbation via noise derivative — fake micro-bumps
+  shader.fragmentShader = shader.fragmentShader.replace(
+    '#include <normal_fragment_maps>',
+    `
+    float bumpScale = 0.35 * (0.8 + 0.4 * gWearMask);
+    float eps = 0.015;
+    vec3 dp = vec3(
+      fbm(vWorldPos * 60.0 + vec3(eps, 0.0, 0.0)) - fbm(vWorldPos * 60.0 - vec3(eps, 0.0, 0.0)),
+      fbm(vWorldPos * 60.0 + vec3(0.0, eps, 0.0)) - fbm(vWorldPos * 60.0 - vec3(0.0, eps, 0.0)),
+      fbm(vWorldPos * 60.0 + vec3(0.0, 0.0, eps)) - fbm(vWorldPos * 60.0 - vec3(0.0, 0.0, eps))
+    );
+    normal = normalize(normal + dp * bumpScale);
+
+    // --- Inscription relief normal perturbation ------------------------
+    // Build a stable per-face tangent basis from the local face UVs so the
+    // engraving reads as real relief on every facet and from every angle.
+    vec3 sigmaX = dFdx(vViewPosition);
+    vec3 sigmaY = dFdy(vViewPosition);
+    vec2 uvDx = dFdx(vFaceUv);
+    vec2 uvDy = dFdy(vFaceUv);
+    float uvDet = uvDx.x * uvDy.y - uvDx.y * uvDy.x;
+    float safeUvDet = sign(uvDet) * max(abs(uvDet), 1e-5);
+    vec3 faceTangent = normalize(( sigmaX * uvDy.y - sigmaY * uvDx.y) / safeUvDet);
+    vec3 faceBitangent = normalize((-sigmaX * uvDy.x + sigmaY * uvDx.x) / safeUvDet);
+    vec3 baseNormal = normalize(normal);
+    // Re-orthogonalize to keep the basis stable on triangular and slanted faces.
+    faceTangent = normalize(faceTangent - baseNormal * dot(baseNormal, faceTangent));
+    faceBitangent = normalize(cross(baseNormal, faceTangent)) * sign(safeUvDet);
+
+    gWarpedUv = vAtlasUv + vec2(fbm(vWorldPos * 80.0), fbm(vWorldPos * 80.0 + 13.0)) * 0.0015;
+    vec3 viewDirVS = normalize(vViewPosition);
+    vec3 viewDirTS = normalize(vec3(
+      dot(viewDirVS, faceTangent),
+      dot(viewDirVS, faceBitangent),
+      dot(viewDirVS, baseNormal)
+    ));
+    float reliefSign = -gInscriptionStyle;
+    float viewFacing = clamp(abs(viewDirTS.z), 0.0, 1.0);
+    float parallaxVisibility = smoothstep(0.18, 0.62, viewFacing);
+    float parallaxDenom = max(abs(viewDirTS.z), 0.42);
+    vec2 parallaxOffset = (viewDirTS.xy / parallaxDenom) * (gInkDepth * 0.012 * reliefSign * parallaxVisibility);
+    vec2 parallaxUv = gWarpedUv - parallaxOffset;
+
+    vec2 normalAtlasTexel = vec2(1.0 / (${ATLAS_COLS}.0 * 384.0), 1.0 / (${ATLAS_ROWS}.0 * 384.0));
+    float normalBlurR = 2.2;
+    float parallaxSharp = texture2D(uInscriptionTex, parallaxUv).a;
+    float parallaxBlur = 0.0;
+    parallaxBlur += parallaxSharp * 0.25;
+    parallaxBlur += texture2D(uInscriptionTex, parallaxUv + normalAtlasTexel * normalBlurR * vec2( 1,  0)).a * 0.125;
+    parallaxBlur += texture2D(uInscriptionTex, parallaxUv + normalAtlasTexel * normalBlurR * vec2(-1,  0)).a * 0.125;
+    parallaxBlur += texture2D(uInscriptionTex, parallaxUv + normalAtlasTexel * normalBlurR * vec2( 0,  1)).a * 0.125;
+    parallaxBlur += texture2D(uInscriptionTex, parallaxUv + normalAtlasTexel * normalBlurR * vec2( 0, -1)).a * 0.125;
+    parallaxBlur += texture2D(uInscriptionTex, parallaxUv + normalAtlasTexel * normalBlurR * vec2( 1,  1)).a * 0.0625;
+    parallaxBlur += texture2D(uInscriptionTex, parallaxUv + normalAtlasTexel * normalBlurR * vec2(-1,  1)).a * 0.0625;
+    parallaxBlur += texture2D(uInscriptionTex, parallaxUv + normalAtlasTexel * normalBlurR * vec2( 1, -1)).a * 0.0625;
+    parallaxBlur += texture2D(uInscriptionTex, parallaxUv + normalAtlasTexel * normalBlurR * vec2(-1, -1)).a * 0.0625;
+
+    float normalGradR = 3.5;
+    float sharpL = texture2D(uInscriptionTex, parallaxUv + normalAtlasTexel * normalGradR * vec2(-1, 0)).a;
+    float sharpR = texture2D(uInscriptionTex, parallaxUv + normalAtlasTexel * normalGradR * vec2( 1, 0)).a;
+    float sharpD = texture2D(uInscriptionTex, parallaxUv + normalAtlasTexel * normalGradR * vec2( 0,-1)).a;
+    float sharpU = texture2D(uInscriptionTex, parallaxUv + normalAtlasTexel * normalGradR * vec2( 0, 1)).a;
+
+    float parallaxMask = inscriptionHeight(parallaxSharp, parallaxBlur) * (1.0 - gWearMask * 0.5);
+    float parallaxGradX = (inscriptionFill(sharpR) - inscriptionFill(sharpL)) * (1.0 - gWearMask * 0.5);
+    float parallaxGradY = (inscriptionFill(sharpU) - inscriptionFill(sharpD)) * (1.0 - gWearMask * 0.5);
+    gInkDepth = parallaxMask;
+
+    float reliefStrength = mix(0.85, 1.35, max(gInscriptionStyle, 0.0));
+    vec3 reliefNormal = normalize(
+      baseNormal
+      - faceTangent * (parallaxGradX * reliefSign * reliefStrength)
+      - faceBitangent * (parallaxGradY * reliefSign * reliefStrength)
+    );
+    normal = reliefNormal;
+    `
+  );
+
+  sealMaterial.userData.shader = shader;
+};
+
+sealMaterial.customProgramCacheKey = () => 'dugu_seal_v3';
+
+/* ============================================================
+ *  MESH
+ * ============================================================ */
+const sealData = buildSealData();
+const geometry = buildBufferGeometry(sealData);
+const mesh = new THREE.Mesh(geometry, sealMaterial);
+mesh.position.y = 0.0;
+mesh.castShadow = true;
+mesh.receiveShadow = true;
+scene.add(mesh);
+
+const previewMesh = new THREE.Mesh(geometry, sealMaterial);
+previewMesh.castShadow = false;
+previewMesh.receiveShadow = false;
+stampBottomScene.add(previewMesh);
+
+const previewAmbient = new THREE.AmbientLight(0xf6efe3, 1.35);
+const previewBottomKey = new THREE.DirectionalLight(0xfff3df, 2.8);
+previewBottomKey.position.set(0.15, -2.6, 0.3);
+const previewBottomFill = new THREE.DirectionalLight(0xd8e5f2, 1.4);
+previewBottomFill.position.set(-1.2, -1.4, -0.6);
+const previewTopRim = new THREE.DirectionalLight(0xffe1be, 0.45);
+previewTopRim.position.set(0.8, 1.0, 0.5);
+stampBottomScene.add(previewAmbient, previewBottomKey, previewBottomFill, previewTopRim);
+
+/* ============================================================
+ *  POST-PROCESSING (bloom + vignette/grain)
+ * ============================================================ */
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+
+const bloom = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.35, 0.6, 0.85
+);
+composer.addPass(bloom);
+
+const finishShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    uTime:    { value: 0 },
+    uVignette:{ value: 1.1 },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uTime;
+    uniform float uVignette;
+    varying vec2 vUv;
+    float rand(vec2 co) {
+      return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+    }
+    void main() {
+      vec4 col = texture2D(tDiffuse, vUv);
+      vec2 c = vUv - 0.5;
+      float vig = 1.0 - dot(c, c) * uVignette;
+      vig = clamp(vig, 0.0, 1.0);
+      col.rgb *= pow(vig, 1.4);
+      float g = rand(vUv + fract(uTime)) - 0.5;
+      col.rgb += g * 0.02;
+      col.rgb *= vec3(1.02, 0.99, 0.94);
+      gl_FragColor = col;
+    }`,
+};
+const finishPass = new ShaderPass(finishShader);
+composer.addPass(finishPass);
+composer.addPass(new OutputPass());
+
+/* ============================================================
+ *  UI WIRING
+ * ============================================================ */
+function bindSlider(id, valueId, uniform) {
+  const s = document.getElementById(id);
+  const v = document.getElementById(valueId);
+  s.addEventListener('input', () => {
+    const val = parseFloat(s.value);
+    sealUniforms[uniform].value = val;
+    v.textContent = val.toFixed(2);
+  });
+}
+bindSlider('s-wear',   'v-wear',   'uWear');
+bindSlider('s-patina', 'v-patina', 'uPatina');
+bindSlider('s-sheen',  'v-sheen',  'uSheen');
+bindSlider('s-ink',    'v-ink',    'uInk');
+
+const sExp = document.getElementById('s-exp');
+const vExp = document.getElementById('v-exp');
+sExp.addEventListener('input', () => {
+  const val = parseFloat(sExp.value);
+  renderer.toneMappingExposure = val;
+  vExp.textContent = val.toFixed(2);
+});
+
+const viewPresets = {
+  iso:    [3.0, 1.8, 3.4],
+  top:    [0, 4.2, 0.001],
+  front:  [0, 0.2, 4.0],
+  bottom: [0, -4.2, 0.001],
+};
+// data-view handlers and animateCamera are defined in Phase 3 section below.
+
+let spinning = false;
+document.getElementById('btn-spin').addEventListener('click', (e) => {
+  if (isStampingMode) return;
+  spinning = !spinning;
+  e.currentTarget.classList.toggle('active', spinning);
+});
+
+const panel = document.getElementById('panel');
+const controlsEl = document.getElementById('controls');
+const controlsInteractiveEls = Array.from(controlsEl.querySelectorAll('button'));
+const hudEl = document.getElementById('hud');
+const modeButtons = Array.from(document.querySelectorAll('.mode-btn'));
+const stampPanelEl = document.getElementById('stamp-panel');
+const btnStampEl = document.getElementById('btn-stamp');
+const btnClearStampsEl = document.getElementById('btn-clear-stamps');
+const legacyStampingModeBtn = document.getElementById('btn-stamping-mode');
+const stampBottomViewEl = document.getElementById('stamp-bottom-view');
+const stampChargeEl = document.getElementById('stamp-charge');
+const stampChargeFillEl = document.getElementById('stamp-charge-fill');
+const stampChargeValueEl = document.getElementById('stamp-charge-value');
+const stampChargeHintEl = stampChargeEl.querySelector('.stamp-charge-hint');
+const impactFlashEl = document.getElementById('impact-flash');
+const stampErrorEl = document.getElementById('stamp-error');
+const stampErrorBodyEl = document.getElementById('stamp-error-body');
+let lastStampChargePct = -1;
+let lastStampChargePctText = -1;
+const panelInteractiveEls = Array.from(panel.querySelectorAll('button, input, textarea'));
+const hintEl = document.getElementById('hint');
+let currentMode = 'inspect';
+let impactFlashTimer = 0;
+let stampErrorTimer = 0;
+
+function setStampModeUi(active) {
+  modeButtons.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === (active ? 'stamp' : 'inspect'));
+  });
+  hudEl.style.display = active ? 'none' : 'block';
+  panel.style.display = active ? 'none' : 'block';
+  controlsEl.style.display = active ? 'none' : 'flex';
+  hintEl.style.display = 'block';
+  stampPanelEl.classList.toggle('visible', active);
+  stampBottomViewEl.classList.toggle('active', active);
+}
+
+function setSettingsPanelFrozen(frozen) {
+  panel.classList.toggle('panel-frozen', frozen);
+  panelInteractiveEls.forEach(el => {
+    el.disabled = frozen;
+  });
+  controlsEl.classList.toggle('controls-frozen', frozen);
+  controlsInteractiveEls.forEach(el => {
+    el.disabled = frozen;
+  });
+}
+
+function setStampChargeVisible(visible) {
+  stampChargeEl.classList.toggle('active', visible);
+  stampChargeEl.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  if (!visible) {
+    lastStampChargePct = -1;
+    lastStampChargePctText = -1;
+    stampChargeEl.classList.remove('overdrive');
+    stampChargeEl.style.setProperty('--charge-lvl', 0);
+    stampChargeEl.style.transform = 'translate(-50%, -50%)';
+    stampChargeValueEl.classList.remove('overheat');
+    stampChargeValueEl.style.transform = 'scale(1)';
+  }
+}
+
+function updateStampChargeUi(level) {
+  const clamped = THREE.MathUtils.clamp(level, 0, 1);
+  const pct = Math.round(level * 100);
+  stampChargeEl.style.setProperty('--charge-lvl', clamped.toFixed(3));
+  stampChargeEl.classList.toggle('overdrive', clamped > 0.8);
+  if (clamped > 0.5 && clamped <= 0.8) {
+    const jitter = (clamped - 0.5) * 5;
+    const jx = (Math.random() - 0.5) * jitter;
+    const jy = (Math.random() - 0.5) * jitter;
+    stampChargeEl.style.transform = `translate(-50%, -50%) translate(${jx.toFixed(2)}px, ${jy.toFixed(2)}px)`;
+  } else if (clamped <= 0.5) {
+    stampChargeEl.style.transform = 'translate(-50%, -50%)';
+  }
+  stampChargeValueEl.classList.toggle('overheat', clamped > 0.9);
+  stampChargeValueEl.style.transform = `scale(${(1 + Math.max(0, clamped - 0.7) * 0.42).toFixed(3)})`;
+  if (pct === lastStampChargePct) return;
+  stampChargeFillEl.style.transform = `scaleX(${clamped})`;
+  if (pct === 0 || pct === 100 || Math.abs(pct - lastStampChargePctText) >= 2) {
+    stampChargeValueEl.textContent = `${pct}%`;
+    lastStampChargePctText = pct;
+  }
+  lastStampChargePct = pct;
+}
+
+function triggerImpactFlash(intensity = 0.8) {
+  if (!impactFlashEl) return;
+  window.clearTimeout(impactFlashTimer);
+  impactFlashEl.style.opacity = String(intensity);
+  impactFlashTimer = window.setTimeout(() => {
+    impactFlashEl.style.opacity = '0';
+  }, 48);
+}
+
+function showStampError(message) {
+  if (!stampErrorEl || !stampErrorBodyEl) return;
+  window.clearTimeout(stampErrorTimer);
+  stampErrorBodyEl.textContent = message;
+  stampErrorEl.classList.add('visible');
+  stampErrorEl.setAttribute('aria-hidden', 'false');
+  stampErrorTimer = window.setTimeout(() => {
+    stampErrorEl.classList.remove('visible');
+    stampErrorEl.setAttribute('aria-hidden', 'true');
+  }, 2200);
+}
+
+function setMode(newMode) {
+  if (newMode === currentMode) return;
+  currentMode = newMode;
+  isStampingMode = newMode === 'stamp';
+  controls.enabled = !isStampingMode;
+  paper.mesh.visible = isStampingMode;
+  stampingCameraLocked = false;
+  setStampModeUi(isStampingMode);
+  setSettingsPanelFrozen(isStampingMode);
+  mesh.position.x = 0;
+  mesh.position.z = 0;
+  if (!isStampingMode) {
+    resetSealAfterStamping();
+  }
+  hintEl.innerHTML = isStampingMode
+    ? 'LEFT DRAG · MOVE SEAL &nbsp;&nbsp; RIGHT DRAG · ROTATE SEAL'
+    : 'drag · rotate &nbsp;&nbsp; scroll · zoom';
+  if (isStampingMode) {
+    hintEl.innerHTML = 'LEFT DRAG · MOVE SEAL &nbsp;&nbsp; RIGHT DRAG · ROTATE SEAL';
+  }
+  if (isStampingMode) {
+    spinning = false;
+    document.getElementById('btn-spin').classList.remove('active');
+    renderer.domElement.focus();
+    paper.mesh.receiveShadow = false;
+    pedestal.visible = false;
+    setStampMirroredMode(true);
+  } else {
+    setStampChargeVisible(false);
+    paper.mesh.receiveShadow = true;
+    pedestal.visible = true;
+    setStampMirroredMode(false);
+  }
+}
+
+modeButtons.forEach(btn => {
+  btn.addEventListener('click', () => setMode(btn.dataset.mode));
+});
+
+setStampModeUi(false);
+btnStampEl.disabled = false;
+btnStampEl.textContent = '印 · Stamp';
+if (legacyStampingModeBtn && legacyStampingModeBtn.parentElement) {
+  legacyStampingModeBtn.parentElement.remove();
+}
+if (stampChargeHintEl) {
+  stampChargeHintEl.textContent = 'Hold 印 · Stamp to build force · release to stamp';
+}
+hintEl.innerHTML = 'drag · rotate &nbsp;&nbsp; scroll · zoom';
+
+function triggerStampAction(power = 0.4) {
+  if (!isStampingMode) return;
+  if (stampPressAnim > 0.0 || stampDecalPending) return;
+  stampPendingPressure = THREE.MathUtils.lerp(0.35, 1.0, THREE.MathUtils.clamp(power, 0, 1));
+  stampHoldBias = THREE.MathUtils.smoothstep(stampPendingPressure, 0.35, 1.0);
+  stampPressImpulse = 1.0;
+  stampDecalPending = true;
+}
+
+function beginStampCharge() {
+  if (!isStampingMode) return;
+  if (stampChargeActive || stampPressAnim > 0.0 || stampDecalPending) return;
+  const faceId = findDownwardFace();
+  const faceData = inscriptionAtlas.faces[faceId];
+  if (!faceData || !(faceData.text || '').trim()) {
+    showStampError('The current bottom stamping face has no inscription. Switch to Inspect, select that face, and add text first, or load the historical preset.');
+    return;
+  }
+  stampChargeActive = true;
+  stampChargeElapsed = 0;
+  stampChargeLevel = 0;
+  updateStampChargeUi(0);
+  setStampChargeVisible(true);
+}
+
+function releaseStampCharge() {
+  if (!stampChargeActive) return;
+  const releasedCharge = stampChargeLevel;
+  stampChargeActive = false;
+  setStampChargeVisible(false);
+  if (releasedCharge > 0.5) {
+    triggerImpactFlash(THREE.MathUtils.lerp(0.45, 0.8, THREE.MathUtils.clamp((releasedCharge - 0.5) / 0.5, 0, 1)));
+  }
+  btnStampEl.disabled = true;
+  triggerStampAction(Math.max(0.12, releasedCharge));
+}
+
+function cancelStampCharge() {
+  stampChargeActive = false;
+  stampChargeElapsed = 0;
+  stampChargeLevel = 0;
+  updateStampChargeUi(0);
+  setStampChargeVisible(false);
+  btnStampEl.disabled = false;
+}
+
+function clearStampDecals() {
+  paper.clear();
+}
+
+function resetSealAfterStamping() {
+  isLeftDraggingStamp = false;
+  isRightDraggingStamp = false;
+  activePointerId = -1;
+  snapTargetQuaternion = null;
+  stampPressAnim = 0.0;
+  stampPressImpulse = 0.0;
+  stampDecalPending = false;
+  stampPendingPressure = 0.42;
+  stampHoldBias = 0.0;
+  cancelStampCharge();
+  mesh.position.set(0, 0, 0);
+  mesh.quaternion.identity();
+  mesh.scale.set(1, 1, 1);
+  stampPreviewDirty = true;
+  stampBoundsDirty = true;
+  btnStampEl.disabled = false;
+  clearStampDecals();
+}
+
+function getWorldVertsForFace(faceId, yOverride = mesh.position.y) {
+  return sealData.faces[faceId].indices.map(i =>
+    sealData.verts[i].clone().multiply(mesh.scale).applyQuaternion(mesh.quaternion).add(
+      new THREE.Vector3(mesh.position.x, yOverride, mesh.position.z)
+    )
+  );
+}
+
+function getContactYForFace(faceId) {
+  const worldVertsAtOriginY = getWorldVertsForFace(faceId, 0);
+  const minLocalWorldY = Math.min(...worldVertsAtOriginY.map(v => v.y));
+  return paperY - minLocalWorldY;
+}
+
+function getFaceMinWorldY(faceId, yOverride = mesh.position.y) {
+  const worldVerts = getWorldVertsForFace(faceId, yOverride);
+  return Math.min(...worldVerts.map(v => v.y));
+}
+
+function getSealWorldYBounds(yOverride = mesh.position.y) {
+  const verts = sealData.verts.map(v =>
+    v.clone().multiply(mesh.scale).applyQuaternion(mesh.quaternion).add(
+      new THREE.Vector3(mesh.position.x, yOverride, mesh.position.z)
+    )
+  );
+  return {
+    minY: Math.min(...verts.map(v => v.y)),
+    maxY: Math.max(...verts.map(v => v.y)),
+  };
+}
+
+function lockStampingCamera(activeBottomFaceId) {
+  stampingCameraLocked = true;
+}
+
+function getDecalSizeForFace(faceId) {
+  const worldVerts = getWorldVertsForFace(faceId, mesh.position.y);
+  const xs = worldVerts.map(v => v.x);
+  const zs = worldVerts.map(v => v.z);
+  const width = Math.max(...xs) - Math.min(...xs);
+  const height = Math.max(...zs) - Math.min(...zs);
+  const safeSize = Math.max(width, height) * 0.92;
+  return Math.max(0.18, Math.min(1.0, safeSize));
+}
+
+function clampStampPositionToPaper() {
+  const activeBottomFaceId = findDownwardFace();
+  const worldVerts = getWorldVertsForFace(activeBottomFaceId);
+  const xs = worldVerts.map(v => v.x);
+  const zs = worldVerts.map(v => v.z);
+  const halfPaper = paper.size / 2;
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minZ = Math.min(...zs);
+  const maxZ = Math.max(...zs);
+
+  if (minX < -halfPaper) mesh.position.x += -halfPaper - minX;
+  if (maxX > halfPaper) mesh.position.x -= maxX - halfPaper;
+  if (minZ < -halfPaper) mesh.position.z += -halfPaper - minZ;
+  if (maxZ > halfPaper) mesh.position.z -= maxZ - halfPaper;
+}
+
+function getStampRotationOnPaper(faceId, worldVerts) {
+  if (!worldVerts || worldVerts.length < 2) return 0;
+
+  // The paper impression is built from a horizontally mirrored stamp image,
+  // so its effective x-axis is the opposite of the face's authored u-axis.
+  const edgeWorld = worldVerts[0].clone().sub(worldVerts[1]).normalize();
+  const paperRight = new THREE.Vector3(1, 0, 0);
+  const paperDown = new THREE.Vector3(0, 0, 1);
+
+  const sx = edgeWorld.dot(paperRight);
+  const sy = edgeWorld.dot(paperDown);
+
+  if (Math.abs(sx) < 1e-6 && Math.abs(sy) < 1e-6) return 0;
+
+  return Math.atan2(sy, sx);
+}
+
+function spawnInkDecal(faceIdOverride = -1) {
+  const faceId = faceIdOverride >= 0 ? faceIdOverride : findDownwardFace();
+  if (faceId < 0) return;
+  const faceData = inscriptionAtlas.faces[faceId];
+  if (!faceData || !(faceData.text || '').trim()) {
+    return;
+  }
+  const faceCenterWorld = faceCenters[faceId].clone().multiply(mesh.scale).applyQuaternion(mesh.quaternion).add(mesh.position);
+  const worldVerts = sealData.faces[faceId].indices.map(i =>
+    sealData.verts[i].clone().multiply(mesh.scale).applyQuaternion(mesh.quaternion).add(mesh.position)
+  );
+  const stampRotation = getStampRotationOnPaper(faceId, worldVerts);
+  paper.stampAt(
+    faceCenterWorld.x,
+    faceCenterWorld.z,
+    faceId,
+    inscriptionAtlas,
+    stampPendingPressure,
+    stampRotation,
+    getDecalSizeForFace(faceId)
+  );
+
+  selectedFaceId = faceId;
+  sealUniforms.uHighlightFaceId.value = faceId;
+  syncFaceEditor(faceId);
+  stampPreviewDirty = true;
+}
+
+function beginStampButtonCharge(e) {
+  if (!isStampingMode) return;
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  if (btnStampEl.disabled) return;
+  beginStampCharge();
+}
+
+function releaseStampButtonCharge(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  releaseStampCharge();
+}
+
+btnStampEl.addEventListener('pointerdown', beginStampButtonCharge);
+btnStampEl.addEventListener('pointerup', releaseStampButtonCharge);
+btnStampEl.addEventListener('pointercancel', cancelStampCharge);
+btnStampEl.addEventListener('pointerleave', () => {
+  if (stampChargeActive) releaseStampCharge();
+});
+btnClearStampsEl.addEventListener('click', () => {
+  clearStampDecals();
+});
+window.addEventListener('blur', cancelStampCharge);
+
+/* ============================================================
+ *  PHASE 3: TAB SWITCHING
+ * ============================================================ */
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+/* ============================================================
+ *  PHASE 3: FACE PICKING + INSCRIPTION EDITOR
+ * ============================================================ */
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+let selectedFaceId = -1;
+let isLeftDraggingStamp = false;
+let isRightDraggingStamp = false;
+let activePointerId = -1;
+let snapTargetQuaternion = null;
+let stampPressAnim = 0.0;
+let stampPressImpulse = 0.0;
+let stampDecalPending = false;
+const STAMP_CHARGE_MAX_MS = 1400;
+let stampChargeActive = false;
+let stampChargeElapsed = 0;
+let stampChargeLevel = 0;
+let stampPendingPressure = 0.42;
+let stampHoldBias = 0.0;
+let stampPreviewDirty = true;
+let stampBoundsDirty = true;
+const lastStampPointer = new THREE.Vector2();
+const stampDownVector = new THREE.Vector3(0, -1, 0);
+const stampCorrectionQuaternion = new THREE.Quaternion();
+const stampYawAxis = new THREE.Vector3();
+const stampPitchAxis = new THREE.Vector3();
+let stampMirroredMode = false;
+const stampDragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const stampDragHit = new THREE.Vector3();
+const stampDragOffset = new THREE.Vector3();
+const stampScaleTarget = new THREE.Vector3(1, 1, 1);
+const stampCameraTargetDistanceEps = 0.0002;
+let stampImpactShake = 0;
+const stampImpactJitter = new THREE.Vector3();
+const paperY = -0.95;
+
+// Face centers (for camera focus on selection)
+function computeFaceCenters(sealData) {
+  return sealData.faces.map(face => {
+    const pts = face.indices.map(i => sealData.verts[i]);
+    const c = new THREE.Vector3();
+    pts.forEach(p => c.add(p));
+    c.divideScalar(pts.length);
+    return c;
+  });
+}
+const faceCenters = computeFaceCenters(sealData);
+
+// Face normals (for camera facing direction)
+function computeFaceNormals(sealData) {
+  return sealData.faces.map(face => {
+    const pts = face.indices.map(i => sealData.verts[i]);
+    const e1 = pts[1].clone().sub(pts[0]);
+    const e2 = pts[2].clone().sub(pts[0]);
+    return e1.cross(e2).normalize();
+  });
+}
+const faceNormals = computeFaceNormals(sealData);
+
+const insEmpty = document.getElementById('ins-empty');
+const insEditor = document.getElementById('ins-editor');
+const insFaceName = document.getElementById('ins-face-name');
+const insText = document.getElementById('ins-text');
+const sFontsize = document.getElementById('s-fontsize');
+const vFontsize = document.getElementById('v-fontsize');
+const sInkOp = document.getElementById('s-inkopacity');
+const vInkOp = document.getElementById('v-inkopacity');
+const insStyleInputs = Array.from(document.querySelectorAll('input[name="ins-style"]'));
+
+function getSelectedInscriptionStyle() {
+  return insStyleInputs.find(input => input.checked)?.value || 'recessed';
+}
+
+function setSelectedInscriptionStyle(style) {
+  insStyleInputs.forEach(input => {
+    input.checked = input.value === style;
+  });
+}
+
+function syncFaceEditor(faceId) {
+  if (faceId < 0) {
+    insEmpty.style.display = 'block';
+    insEditor.style.display = 'none';
+    return;
+  }
+
+  insEmpty.style.display = 'none';
+  insEditor.style.display = 'block';
+  insFaceName.textContent = sealData.faces[faceId].name;
+
+  const data = inscriptionAtlas.faces[faceId] || { text: '', fontSize: 1.0, opacity: 0.92, style: 'recessed' };
+  insText.value = data.text || '';
+  sFontsize.value = data.fontSize;
+  vFontsize.textContent = data.fontSize.toFixed(2);
+  sInkOp.value = data.opacity;
+  vInkOp.textContent = data.opacity.toFixed(2);
+  setSelectedInscriptionStyle(data.style || 'recessed');
+}
+
+function updateSelectedFaceInscription() {
+  if (selectedFaceId < 0) return;
+  inscriptionAtlas.setFace(selectedFaceId, {
+    text: insText.value,
+    fontSize: parseFloat(sFontsize.value),
+    opacity: parseFloat(sInkOp.value),
+    style: getSelectedInscriptionStyle(),
+  });
+}
+
+function selectFace(faceId) {
+  selectedFaceId = faceId;
+  sealUniforms.uHighlightFaceId.value = faceId;
+
+  // Switch to inscription tab
+  document.querySelector('.tab[data-tab="inscription"]').click();
+
+  syncFaceEditor(faceId);
+
+  // Animate camera to face-on view
+  const center = faceCenters[faceId];
+  const normal = faceNormals[faceId];
+  const dist = 3.5;
+  const camTarget = center.clone().add(normal.clone().multiplyScalar(dist));
+  animateCamera(camTarget, center);
+}
+
+function deselectFace() {
+  selectedFaceId = -1;
+  sealUniforms.uHighlightFaceId.value = -1;
+  syncFaceEditor(-1);
+}
+
+function getFaceWorldNormal(faceId, sourceQuaternion = mesh.quaternion) {
+  return faceNormals[faceId].clone().applyQuaternion(sourceQuaternion).normalize();
+}
+
+function findDownwardFace(sourceQuaternion = mesh.quaternion) {
+  let bestFaceId = 0;
+  let bestDot = -Infinity;
+
+  for (let i = 0; i < faceNormals.length; i++) {
+    const worldNormal = getFaceWorldNormal(i, sourceQuaternion);
+    const alignment = worldNormal.dot(stampDownVector);
+    if (alignment > bestDot) {
+      bestDot = alignment;
+      bestFaceId = i;
+    }
+  }
+
+  return bestFaceId;
+}
+
+function setStampMirroredMode(active) {
+  if (stampMirroredMode === active) return;
+  stampMirroredMode = active;
+  for (let faceId = 0; faceId < sealData.faces.length; faceId++) {
+    inscriptionAtlas.setMirrored(faceId, active);
+  }
+  stampPreviewDirty = true;
+}
+
+function snapSealToDownwardFace() {
+  const faceId = findDownwardFace();
+  const currentNormal = getFaceWorldNormal(faceId);
+  stampCorrectionQuaternion.setFromUnitVectors(currentNormal, stampDownVector);
+  snapTargetQuaternion = stampCorrectionQuaternion.clone().multiply(mesh.quaternion).normalize();
+}
+
+function commitSnappedFace() {
+  const faceId = findDownwardFace();
+  selectedFaceId = faceId;
+  sealUniforms.uHighlightFaceId.value = faceId;
+  syncFaceEditor(faceId);
+  stampPreviewDirty = true;
+  stampBoundsDirty = true;
+}
+
+function renderBottomPreview() {
+  if (!stampPreviewDirty) return;
+  previewMesh.quaternion.copy(mesh.quaternion);
+  previewMesh.scale.copy(mesh.scale);
+  previewMesh.position.set(0, 0, 0);
+
+  stampBottomTarget.set(0, 0, 0);
+  stampBottomCamera.position.copy(stampBottomOffset);
+  stampBottomCamera.lookAt(stampBottomTarget);
+  stampBottomRenderer.render(stampBottomScene, stampBottomCamera);
+  stampPreviewDirty = false;
+}
+
+// Override animateCamera to support a target point
+function animateCamera(target, lookTarget) {
+  const startPos = camera.position.clone();
+  const startLook = controls.target.clone();
+  const endLook = (lookTarget || new THREE.Vector3(0, 0, 0));
+  const t0 = performance.now();
+  const dur = 700;
+  function step() {
+    const t = Math.min((performance.now() - t0) / dur, 1);
+    const e = 1 - Math.pow(1 - t, 3);
+    camera.position.lerpVectors(startPos, target, e);
+    controls.target.lerpVectors(startLook, endLook, e);
+    controls.update();
+    if (t < 1) requestAnimationFrame(step);
+  }
+  step();
+}
+
+// Replace the data-view handlers so they use the new animateCamera signature
+document.querySelectorAll('[data-view]').forEach(btn => {
+  btn.onclick = () => {
+    if (isStampingMode) return;
+    const [x, y, z] = viewPresets[btn.dataset.view];
+    animateCamera(new THREE.Vector3(x, y, z), new THREE.Vector3(0, 0, 0));
+  };
+});
+
+// Click picking
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  // Ignore clicks on UI overlays
+  if (e.target !== renderer.domElement) return;
+  if (isStampingMode && e.button === 0) {
+    e.preventDefault();
+    pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+    pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+    stampDragPlane.constant = -mesh.position.y;
+    if (!raycaster.ray.intersectPlane(stampDragPlane, stampDragHit)) return;
+    isLeftDraggingStamp = true;
+    activePointerId = e.pointerId;
+    stampDragOffset.copy(mesh.position).sub(stampDragHit);
+    renderer.domElement.setPointerCapture(e.pointerId);
+    return;
+  }
+  if (isStampingMode && e.button === 2) {
+    e.preventDefault();
+    isRightDraggingStamp = true;
+    activePointerId = e.pointerId;
+    lastStampPointer.set(e.clientX, e.clientY);
+    snapTargetQuaternion = null;
+    renderer.domElement.setPointerCapture(e.pointerId);
+    return;
+  }
+  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObject(mesh);
+  if (hits.length === 0) return;
+  const hit = hits[0];
+  const vIdx = geometry.index.array[hit.faceIndex * 3];
+  const fid = geometry.attributes.faceId.array[vIdx];
+  selectFace(fid);
+});
+
+renderer.domElement.addEventListener('pointermove', (e) => {
+  if (!isStampingMode || e.pointerId !== activePointerId) return;
+  if (isLeftDraggingStamp) {
+    e.preventDefault();
+    pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+    pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+    stampDragPlane.constant = -mesh.position.y;
+    if (!raycaster.ray.intersectPlane(stampDragPlane, stampDragHit)) return;
+    mesh.position.x = stampDragHit.x + stampDragOffset.x;
+    mesh.position.z = stampDragHit.z + stampDragOffset.z;
+    clampStampPositionToPaper();
+    stampPreviewDirty = true;
+    return;
+  }
+  if (!isRightDraggingStamp) return;
+  e.preventDefault();
+
+  const dx = e.clientX - lastStampPointer.x;
+  const dy = e.clientY - lastStampPointer.y;
+  lastStampPointer.set(e.clientX, e.clientY);
+
+  camera.getWorldDirection(stampPitchAxis).normalize();
+  stampYawAxis.copy(camera.up).normalize();
+  stampPitchAxis.crossVectors(stampPitchAxis, stampYawAxis).normalize();
+  const yaw = new THREE.Quaternion().setFromAxisAngle(stampYawAxis, dx * 0.008);
+  const pitch = new THREE.Quaternion().setFromAxisAngle(stampPitchAxis, dy * 0.008);
+
+  mesh.quaternion.premultiply(yaw).premultiply(pitch).normalize();
+  stampPreviewDirty = true;
+  stampBoundsDirty = true;
+});
+
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (e.pointerId !== activePointerId) return;
+  if (isLeftDraggingStamp) {
+    e.preventDefault();
+    isLeftDraggingStamp = false;
+    activePointerId = -1;
+    if (renderer.domElement.hasPointerCapture(e.pointerId)) {
+      renderer.domElement.releasePointerCapture(e.pointerId);
+    }
+    return;
+  }
+  if (isRightDraggingStamp) {
+    e.preventDefault();
+    isRightDraggingStamp = false;
+    activePointerId = -1;
+    if (renderer.domElement.hasPointerCapture(e.pointerId)) {
+      renderer.domElement.releasePointerCapture(e.pointerId);
+    }
+    snapSealToDownwardFace();
+    stampPreviewDirty = true;
+    stampBoundsDirty = true;
+  }
+});
+
+renderer.domElement.addEventListener('pointercancel', (e) => {
+  if (e.pointerId !== activePointerId) return;
+  const wasRightDragging = isRightDraggingStamp;
+  isLeftDraggingStamp = false;
+  isRightDraggingStamp = false;
+  activePointerId = -1;
+  if (renderer.domElement.hasPointerCapture(e.pointerId)) {
+    renderer.domElement.releasePointerCapture(e.pointerId);
+  }
+  if (wasRightDragging) {
+    snapSealToDownwardFace();
+    stampPreviewDirty = true;
+    stampBoundsDirty = true;
+  }
+});
+
+renderer.domElement.addEventListener('contextmenu', (e) => {
+  if (isStampingMode) e.preventDefault();
+});
+
+// Inscription text editing (live)
+insText.addEventListener('input', () => {
+  updateSelectedFaceInscription();
+});
+sFontsize.addEventListener('input', () => {
+  vFontsize.textContent = parseFloat(sFontsize.value).toFixed(2);
+  updateSelectedFaceInscription();
+});
+sInkOp.addEventListener('input', () => {
+  vInkOp.textContent = parseFloat(sInkOp.value).toFixed(2);
+  updateSelectedFaceInscription();
+});
+insStyleInputs.forEach(input => {
+  input.addEventListener('change', updateSelectedFaceInscription);
+});
+
+document.getElementById('ins-clear').addEventListener('click', () => {
+  if (selectedFaceId < 0) return;
+  insText.value = '';
+  inscriptionAtlas.clearFace(selectedFaceId);
+});
+document.getElementById('ins-deselect').addEventListener('click', deselectFace);
+
+document.getElementById('btn-clear-all').addEventListener('click', () => {
+  if (!confirm('Clear all inscriptions on all 26 faces?')) return;
+  inscriptionAtlas.clearAll();
+  if (selectedFaceId >= 0) insText.value = '';
+});
+
+/* ============================================================
+ *  HISTORICAL PRESET
+ *  The real Dugu Seal has 14 inscribed square faces (the 8 triangles
+ *  are uncarved). We distribute the documented inscriptions across
+ *  our 18 squares: 2 caps + 8 band + 4 upper rects + 4 lower rects.
+ * ============================================================ */
+const HISTORICAL_INSCRIPTIONS = [
+  // Top / bottom caps — memorials to the emperor ("上疏/上表" inscriptions)
+  { text: '臣信上疏', faceName: 'top' },
+  { text: '臣信上表', faceName: 'bottom' },
+
+  // Band — official seals
+  { text: '大司馬印', faceName: 'band_0' },
+  { text: '大都督印', faceName: 'band_2' },
+  { text: '柱國之印', faceName: 'band_4' },
+  { text: '刺史之印', faceName: 'band_6' },
+  { text: '令',       faceName: 'band_1' },
+  { text: '密',       faceName: 'band_3' },
+  { text: '信白牋',   faceName: 'band_5' },
+  { text: '信啟事',   faceName: 'band_7' },
+
+  // Upper rectangles — personal correspondence
+  { text: '獨孤信白書', faceName: 'upper_rect_0' },
+  { text: '耶敕',      faceName: 'upper_rect_2' },
+
+  // Lower rectangles — remaining memorials
+  { text: '臣信啟事', faceName: 'lower_rect_0' },
+  { text: '臣信上章', faceName: 'lower_rect_2' },
+];
+
+document.getElementById('btn-preset').addEventListener('click', () => {
+  // Build name -> faceId map
+  const nameToId = {};
+  sealData.faces.forEach((f, i) => nameToId[f.name] = i);
+
+  HISTORICAL_INSCRIPTIONS.forEach(({ text, faceName }) => {
+    const fid = nameToId[faceName];
+    if (fid !== undefined) {
+      inscriptionAtlas.setFace(fid, {
+        text,
+        fontSize: 1.0,
+        opacity: 0.9,
+        style: 'recessed',
+      });
+    }
+  });
+
+  // If user is editing a face that just got preset text, refresh the textarea
+  if (selectedFaceId >= 0 && inscriptionAtlas.faces[selectedFaceId]) {
+    insText.value = inscriptionAtlas.faces[selectedFaceId].text || '';
+    setSelectedInscriptionStyle(inscriptionAtlas.faces[selectedFaceId].style || 'recessed');
+  }
+});
+
+/* ============================================================
+ *  LOOP
+ * ============================================================ */
+function onResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+}
+window.addEventListener('resize', onResize);
+
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  const t = clock.elapsedTime;
+  const activeBottomFaceId = findDownwardFace();
+  const contactY = getContactYForFace(activeBottomFaceId);
+  if (isStampingMode && !stampingCameraLocked) {
+    lockStampingCamera(activeBottomFaceId);
+  }
+  if (stampChargeActive) {
+    stampChargeElapsed = Math.min(STAMP_CHARGE_MAX_MS, stampChargeElapsed + dt * 1000);
+    stampChargeLevel = stampChargeElapsed / STAMP_CHARGE_MAX_MS;
+    updateStampChargeUi(stampChargeLevel);
+    if (stampChargeLevel >= 1) {
+      releaseStampCharge();
+    }
+  }
+  if (stampPressImpulse > 0.0) {
+    stampPressAnim = 0.0001;
+    stampPressImpulse = 0.0;
+  }
+  if (stampPressAnim > 0.0) {
+    let animStep = 0.045;
+    const holdStart = THREE.MathUtils.lerp(0.42, 0.36, stampHoldBias);
+    const holdEnd = THREE.MathUtils.lerp(0.62, 0.76, stampHoldBias);
+    if (stampPressAnim >= holdStart && stampPressAnim <= holdEnd) {
+      animStep = THREE.MathUtils.lerp(0.016, 0.006, stampHoldBias);
+    } else if (stampPressAnim > 0.62) {
+      animStep = 0.052;
+    }
+    stampPressAnim = Math.min(1.0, stampPressAnim + animStep * Math.min(dt * 60, 2.0));
+    if (stampPressAnim >= 1.0) stampPressAnim = 0.0;
+  }
+  const hoverY = isStampingMode ? 0.75 : 0.0;
+  const pressProgress = stampPressAnim <= 0.5
+    ? stampPressAnim / 0.5
+    : 1.0 - ((stampPressAnim - 0.5) / 0.5);
+  const pressDepth = pressProgress * Math.max(0, hoverY - contactY);
+  const targetHoverY = isStampingMode ? hoverY - pressDepth : 0.0;
+  const targetScale = 1.0;
+  paper.mesh.visible = isStampingMode;
+  mesh.position.y = THREE.MathUtils.lerp(mesh.position.y, targetHoverY, stampPressAnim > 0.0 ? 0.28 : 0.08);
+  stampScaleTarget.set(targetScale, targetScale, targetScale);
+  mesh.scale.lerp(stampScaleTarget, 0.08);
+  if (isStampingMode && stampBoundsDirty && !stampDecalPending) {
+    clampStampPositionToPaper();
+    stampBoundsDirty = false;
+  }
+  if (isStampingMode && stampDecalPending && stampPressAnim >= 0.46 && stampPressAnim <= 0.56) {
+    mesh.position.y = contactY;
+    spawnInkDecal(activeBottomFaceId);
+    stampImpactShake = Math.max(stampImpactShake, THREE.MathUtils.lerp(0.006, 0.018, stampPendingPressure));
+    triggerImpactFlash(THREE.MathUtils.lerp(0.18, 0.45, stampPendingPressure));
+    stampDecalPending = false;
+  }
+  if (stampImpactShake > 0.0001) {
+    stampImpactJitter.set(
+      (Math.random() - 0.5) * stampImpactShake,
+      (Math.random() - 0.5) * stampImpactShake * 0.45,
+      (Math.random() - 0.5) * stampImpactShake
+    );
+    mesh.position.add(stampImpactJitter);
+    camera.position.addScaledVector(stampImpactJitter, 0.2);
+    stampImpactShake *= Math.max(0, 1.0 - dt * 20.0);
+  } else {
+    stampImpactShake = 0;
+  }
+  if (!isStampingMode || stampPressAnim === 0.0) {
+    stampDecalPending = false;
+    btnStampEl.disabled = false;
+  }
+  if (snapTargetQuaternion && !isRightDraggingStamp) {
+    mesh.quaternion.slerp(snapTargetQuaternion, 0.18);
+    if (mesh.quaternion.angleTo(snapTargetQuaternion) < 0.0008) {
+      mesh.quaternion.copy(snapTargetQuaternion);
+      snapTargetQuaternion = null;
+      commitSnappedFace();
+    }
+  }
+  if (isStampingMode) {
+    if (camera.position.distanceToSquared(stampingCameraPos) > stampCameraTargetDistanceEps) {
+      camera.position.lerp(stampingCameraPos, 0.08);
+    } else {
+      camera.position.copy(stampingCameraPos);
+    }
+    if (controls.target.distanceToSquared(stampingCameraTarget) > stampCameraTargetDistanceEps) {
+      controls.target.lerp(stampingCameraTarget, 0.08);
+    } else {
+      controls.target.copy(stampingCameraTarget);
+    }
+    camera.lookAt(stampingCameraTarget);
+    renderBottomPreview();
+  } else if (spinning) {
+    mesh.rotation.y += 0.0035;
+  }
+  finishPass.uniforms.uTime.value = t;
+  if (sealMaterial.userData.shader) {
+    sealMaterial.userData.shader.uniforms.uTime.value = t;
+  }
+  if (
+    !isStampingMode
+    || camera.position.distanceToSquared(stampingCameraPos) > stampCameraTargetDistanceEps
+    || controls.target.distanceToSquared(stampingCameraTarget) > stampCameraTargetDistanceEps
+  ) {
+    controls.update();
+  }
+  if (isStampingMode) {
+    renderer.render(scene, camera);
+  } else {
+    composer.render();
+  }
+}
+
+setTimeout(() => {
+  document.getElementById('loading').classList.add('hidden');
+}, 600);
+animate();
+
+window.__seal = { sealData, geometry, mesh, sealMaterial, sealUniforms };
+console.log('Phase 2 ready. window.__seal exposed.');
+</script>
+</body>
+</html>
