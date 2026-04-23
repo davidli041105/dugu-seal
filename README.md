@@ -2,9 +2,11 @@
 
 An interactive, physically-based 3D reconstruction and stamping simulator for the **Dugu Seal (獨孤信多面體煤精印)** — a 26-faceted personal seal belonging to the 6th-century Western Wei general **Dugu Xin (獨孤信)**, one of the most unusual artifacts in the history of Chinese sigillography.
 
-Everything runs in a single HTML file. No build step, no dependencies to install.
+### ▸ [**Try the live demo →**](https://davidli041105.github.io/dugu-seal/)
 
-![Dugu Seal showing carved inscriptions on multiple faces](./screenshots/overall_screenshot.png) <!-- optional; delete or replace -->
+No download, no install. Opens in any modern browser.
+
+![Dugu Seal showing carved inscriptions on multiple faces](screenshots/overall_screenshot.png)
 
 ---
 
@@ -14,7 +16,8 @@ Dugu Xin (獨孤信, 503–557) was a Xianbei aristocrat and one of the Eight Pi
 
 The polyhedron itself is a **rhombicuboctahedron**: an Archimedean solid with 26 faces (18 squares and 8 equilateral triangles), 48 edges of equal length, and 24 vertices. It is believed to be one of the oldest surviving rhombicuboctahedra in any culture.
 
-This project was built as a 3D graphics class assignment fulfilling the brief:
+This project was built as the final project for the **3D Computer Graphics** course (Spring 2026) at Xi'an Jiaotong University, fulfilling the brief:
+
 - Geometric modeling of the 26-hedron
 - Photorealistic rendering with a sense of historical weathering
 - Interactive free design of seal contents
@@ -22,31 +25,27 @@ This project was built as a 3D graphics class assignment fulfilling the brief:
 
 ---
 
-## Quickstart
+## Running it
 
-### Option 1 — Just open it
+### Option 1 — The live demo (easiest)
 
-Some browsers will open the file directly from disk. If it works, you're done:
+Just open **[davidli041105.github.io/dugu-seal](https://davidli041105.github.io/dugu-seal/)** in your browser.
 
-```
-Open dugu_seal.html in Chrome / Firefox / Safari / Edge
-```
+### Option 2 — Run locally
 
-### Option 2 — Recommended (local HTTP server)
-
-Because the file loads three.js via ES module imports from a CDN, some browsers block direct `file://` opens due to CORS rules. The reliable path is to serve it over localhost:
+Clone the repo and serve it over localhost. The viewer loads three.js via ES module imports from a CDN, so some browsers block direct `file://` opens due to CORS rules.
 
 ```bash
-# in the folder containing dugu_seal.html
+git clone https://github.com/davidli041105/dugu-seal.git
+cd dugu-seal
 python3 -m http.server 8000
 
-# then open in your browser:
-# http://localhost:8000/dugu_seal.html
+# then open http://localhost:8000/ in your browser
 ```
 
 Any static server works — `npx serve .`, `php -S localhost:8000`, etc.
 
-An internet connection is required the first time you open it (to fetch three.js from the CDN). The browser will cache it for offline use afterward.
+An internet connection is required the first time you open the page (to fetch three.js from the CDN). The browser will cache it for offline use afterward.
 
 ---
 
@@ -115,7 +114,7 @@ A separate scene where the seal descends onto rice paper, presses, and leaves it
 - The seal bobs more aggressively as the charge builds
 - **Release** to stamp — the seal descends, presses the paper, transfers ink, and lifts off
 - Harder presses (longer holds) produce bolder, more saturated stamps with more ink bleed
-- Over-charging (past 80%) triggers a "overdrive" state with visual shake — be careful
+- Over-charging (past 80%) triggers an "overdrive" state with visual shake — be careful
 - Each stamp lands at a slightly different random position and rotation, simulating real hand stamping
 
 **Other controls**
@@ -182,16 +181,30 @@ The descend/press/lift animation has four distinct phases with tuned easing curv
 
 ```
 .
-├── dugu_seal.html        # the entire project, single file
-├── README.md             # this file
-└── screenshots/          # optional — add your own renders
+├── index.html                                  # entry point served at the live demo URL
+├── dugu-seal-viewer.html                       # standalone viewer (same app, direct-open filename)
+├── dugu_seal_deck_final_print_chinese.pdf      # presentation deck (Chinese)
+├── dugu_seal_deck_final_print_english.pdf      # presentation deck (English)
+├── screenshots/                                # rendered stills of the project
+└── README.md                                   # this file
 ```
+
+Both HTML files are the same application; `index.html` exists so that GitHub Pages serves the project at the repo root.
+
+---
+
+## Presentation Decks
+
+Print-ready slide decks covering the project's technical design — geometry, material & lighting, engraved-character depth effect, and the stamping simulation — are in the repo root:
+
+- 🇨🇳 [`dugu_seal_deck_final_print_chinese.pdf`](dugu_seal_deck_final_print_chinese.pdf) — 中文版本
+- 🇬🇧 [`dugu_seal_deck_final_print_english.pdf`](dugu_seal_deck_final_print_english.pdf) — English version
 
 ---
 
 ## Customising
 
-Want to tweak the look? Everything interesting is exposed as either UI sliders or near the top of the `<script type="module">` block:
+Want to tweak the look? Everything interesting is exposed as either UI sliders or near the top of the `<script type="module">` block in `index.html`:
 
 - `PARAMS` — geometry proportions
 - `_SEAL_SCALE` — overall seal size
@@ -217,6 +230,7 @@ Tested on recent versions of Chrome, Firefox, Safari, and Edge. Requires **WebGL
 - **Geometry**: Rhombicuboctahedron (小斜方截半立方體 · Archimedean solid)
 - **Rendering library**: [three.js](https://threejs.org/) r160
 - **Chinese font stack**: FangSong / STFangsong / KaiTi / STKaiti / Source Han Serif SC, with browser fallbacks
+- **Course**: 3D Computer Graphics · Xi'an Jiaotong University · Spring 2026
 
 ---
 
