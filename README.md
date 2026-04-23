@@ -197,8 +197,8 @@ Both HTML files are the same application; `index.html` exists so that GitHub Pag
 
 Print-ready slide decks covering the project's technical design — geometry, material & lighting, engraved-character depth effect, and the stamping simulation — are in the repo root:
 
-- 🇨🇳 [`dugu_seal_deck_final_print_chinese.pdf`](dugu_seal_deck_final_print_chinese.pdf) — 中文版本
 - 🇬🇧 [`dugu_seal_deck_final_print_english.pdf`](dugu_seal_deck_final_print_english.pdf) — English version
+- 🇨🇳 [`dugu_seal_deck_final_print_chinese.pdf`](dugu_seal_deck_final_print_chinese.pdf) — 中文版本
 
 ---
 
